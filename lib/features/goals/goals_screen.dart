@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -503,7 +504,18 @@ class GoalsScreen extends ConsumerWidget {
                 onPressed: () async {
                   final amount = double.tryParse(ctrl.text.trim()) ?? 0;
                   if (amount <= 0) return;
-                  await ref.read(databaseProvider).contributeToGoal(goal.id, amount);
+                  final db = ref.read(databaseProvider);
+                  await db.contributeToGoal(goal.id, amount);
+                  // Record as investment transaction (won't count against budgets)
+                  await db.insertTransaction(TransactionsCompanion.insert(
+                    uuid: const Uuid().v4(),
+                    amount: amount,
+                    category: 'Investment',
+                    description: 'Contribution – ${goal.name}',
+                    date: DateTime.now(),
+                    accountId: Value(goal.accountId),
+                    txnType: const Value('investment'),
+                  ));
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: const Text('Add Contribution'),

@@ -69,6 +69,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final tt          = Theme.of(context).textTheme;
     final monthLabel  = DateFormat('MMMM yyyy').format(DateTime.parse('$month-01'));
     final totalSpend  = spend.values.fold(0.0, (a, b) => a + b);
+    final totalOutflow = ref.watch(totalMonthlyOutflowProvider);
     final totalBudget = allocAsync.valueOrNull
         ?.fold(0.0, (s, a) => s + a.allocatedAmount) ?? 0.0;
     final dailySpend  = dailyAsync.valueOrNull ?? {};
@@ -115,6 +116,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               background: _HeroBackground(
                 expandRatio: expandRatio,
                 totalSpend: totalSpend,
+                totalOutflow: totalOutflow,
                 totalBudget: totalBudget,
                 currency: currency,
                 monthLabel: monthLabel,
@@ -287,7 +289,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
 class _HeroBackground extends StatelessWidget {
   final double expandRatio; // 0 = collapsed, 1 = fully expanded
-  final double totalSpend;
+  final double totalSpend;   // expense-only, for budget badge comparison
+  final double totalOutflow; // all types, shown as the hero number
   final double totalBudget;
   final AppCurrency currency;
   final String monthLabel;
@@ -304,6 +307,7 @@ class _HeroBackground extends StatelessWidget {
   const _HeroBackground({
     required this.expandRatio,
     required this.totalSpend,
+    required this.totalOutflow,
     required this.totalBudget,
     required this.currency,
     required this.monthLabel,
@@ -488,7 +492,7 @@ class _HeroBackground extends StatelessWidget {
                       Align(
                         alignment: amountAlign,
                         child: Text(
-                          formatAmount(totalSpend, currency),
+                          formatAmount(totalOutflow, currency),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: amountSize,

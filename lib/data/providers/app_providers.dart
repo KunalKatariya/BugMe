@@ -127,15 +127,24 @@ final transactionsProvider = StreamProvider<List<Transaction>>((ref) {
   return db.watchTransactionsForMonth(month, accountId);
 });
 
-/// Spend-per-category map — derived live from the transactions stream.
-/// Automatically updates whenever a transaction is added/removed.
+/// Spend-per-category map — **expense transactions only** — for budget tracking.
+/// Investment and recurring transactions are excluded so they don't eat into
+/// the user's discretionary category budgets.
 final spendPerCategoryProvider = Provider<Map<String, double>>((ref) {
   final txns = ref.watch(transactionsProvider).valueOrNull ?? [];
   final map = <String, double>{};
-  for (final t in txns) {
+  for (final t in txns.where((t) => t.txnType == 'expense')) {
     map[t.category] = (map[t.category] ?? 0.0) + t.amount;
   }
   return map;
+});
+
+/// Total money out of the account for the selected month — **all transaction
+/// types** (expense + investment + recurring) for an accurate cash-outflow
+/// figure in the dashboard hero.
+final totalMonthlyOutflowProvider = Provider<double>((ref) {
+  final txns = ref.watch(transactionsProvider).valueOrNull ?? [];
+  return txns.fold(0.0, (sum, t) => sum + t.amount);
 });
 
 // ── Budget Allocations ─────────────────────────────────────────────────────

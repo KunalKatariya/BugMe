@@ -110,6 +110,18 @@ class $TransactionsTable extends Transactions
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _txnTypeMeta = const VerificationMeta(
+    'txnType',
+  );
+  @override
+  late final GeneratedColumn<String> txnType = GeneratedColumn<String>(
+    'txn_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('expense'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -121,6 +133,7 @@ class $TransactionsTable extends Transactions
     createdAt,
     rawInput,
     accountId,
+    txnType,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -198,6 +211,12 @@ class $TransactionsTable extends Transactions
         accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
       );
     }
+    if (data.containsKey('txn_type')) {
+      context.handle(
+        _txnTypeMeta,
+        txnType.isAcceptableOrUnknown(data['txn_type']!, _txnTypeMeta),
+      );
+    }
     return context;
   }
 
@@ -243,6 +262,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}account_id'],
       )!,
+      txnType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}txn_type'],
+      )!,
     );
   }
 
@@ -262,6 +285,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final DateTime createdAt;
   final String? rawInput;
   final int accountId;
+
+  /// 'expense' | 'investment' | 'recurring'
+  final String txnType;
   const Transaction({
     required this.id,
     required this.uuid,
@@ -272,6 +298,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.createdAt,
     this.rawInput,
     required this.accountId,
+    required this.txnType,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -287,6 +314,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       map['raw_input'] = Variable<String>(rawInput);
     }
     map['account_id'] = Variable<int>(accountId);
+    map['txn_type'] = Variable<String>(txnType);
     return map;
   }
 
@@ -303,6 +331,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ? const Value.absent()
           : Value(rawInput),
       accountId: Value(accountId),
+      txnType: Value(txnType),
     );
   }
 
@@ -321,6 +350,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       rawInput: serializer.fromJson<String?>(json['rawInput']),
       accountId: serializer.fromJson<int>(json['accountId']),
+      txnType: serializer.fromJson<String>(json['txnType']),
     );
   }
   @override
@@ -336,6 +366,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'rawInput': serializer.toJson<String?>(rawInput),
       'accountId': serializer.toJson<int>(accountId),
+      'txnType': serializer.toJson<String>(txnType),
     };
   }
 
@@ -349,6 +380,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     DateTime? createdAt,
     Value<String?> rawInput = const Value.absent(),
     int? accountId,
+    String? txnType,
   }) => Transaction(
     id: id ?? this.id,
     uuid: uuid ?? this.uuid,
@@ -359,6 +391,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     createdAt: createdAt ?? this.createdAt,
     rawInput: rawInput.present ? rawInput.value : this.rawInput,
     accountId: accountId ?? this.accountId,
+    txnType: txnType ?? this.txnType,
   );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -373,6 +406,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       rawInput: data.rawInput.present ? data.rawInput.value : this.rawInput,
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      txnType: data.txnType.present ? data.txnType.value : this.txnType,
     );
   }
 
@@ -387,7 +421,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('date: $date, ')
           ..write('createdAt: $createdAt, ')
           ..write('rawInput: $rawInput, ')
-          ..write('accountId: $accountId')
+          ..write('accountId: $accountId, ')
+          ..write('txnType: $txnType')
           ..write(')'))
         .toString();
   }
@@ -403,6 +438,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     createdAt,
     rawInput,
     accountId,
+    txnType,
   );
   @override
   bool operator ==(Object other) =>
@@ -416,7 +452,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.date == this.date &&
           other.createdAt == this.createdAt &&
           other.rawInput == this.rawInput &&
-          other.accountId == this.accountId);
+          other.accountId == this.accountId &&
+          other.txnType == this.txnType);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -429,6 +466,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<DateTime> createdAt;
   final Value<String?> rawInput;
   final Value<int> accountId;
+  final Value<String> txnType;
   const TransactionsCompanion({
     this.id = const Value.absent(),
     this.uuid = const Value.absent(),
@@ -439,6 +477,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.rawInput = const Value.absent(),
     this.accountId = const Value.absent(),
+    this.txnType = const Value.absent(),
   });
   TransactionsCompanion.insert({
     this.id = const Value.absent(),
@@ -450,6 +489,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.rawInput = const Value.absent(),
     this.accountId = const Value.absent(),
+    this.txnType = const Value.absent(),
   }) : uuid = Value(uuid),
        amount = Value(amount),
        category = Value(category),
@@ -465,6 +505,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<DateTime>? createdAt,
     Expression<String>? rawInput,
     Expression<int>? accountId,
+    Expression<String>? txnType,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -476,6 +517,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (createdAt != null) 'created_at': createdAt,
       if (rawInput != null) 'raw_input': rawInput,
       if (accountId != null) 'account_id': accountId,
+      if (txnType != null) 'txn_type': txnType,
     });
   }
 
@@ -489,6 +531,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<DateTime>? createdAt,
     Value<String?>? rawInput,
     Value<int>? accountId,
+    Value<String>? txnType,
   }) {
     return TransactionsCompanion(
       id: id ?? this.id,
@@ -500,6 +543,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       createdAt: createdAt ?? this.createdAt,
       rawInput: rawInput ?? this.rawInput,
       accountId: accountId ?? this.accountId,
+      txnType: txnType ?? this.txnType,
     );
   }
 
@@ -533,6 +577,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (accountId.present) {
       map['account_id'] = Variable<int>(accountId.value);
     }
+    if (txnType.present) {
+      map['txn_type'] = Variable<String>(txnType.value);
+    }
     return map;
   }
 
@@ -547,7 +594,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('date: $date, ')
           ..write('createdAt: $createdAt, ')
           ..write('rawInput: $rawInput, ')
-          ..write('accountId: $accountId')
+          ..write('accountId: $accountId, ')
+          ..write('txnType: $txnType')
           ..write(')'))
         .toString();
   }
@@ -2558,6 +2606,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<String?> rawInput,
       Value<int> accountId,
+      Value<String> txnType,
     });
 typedef $$TransactionsTableUpdateCompanionBuilder =
     TransactionsCompanion Function({
@@ -2570,6 +2619,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<String?> rawInput,
       Value<int> accountId,
+      Value<String> txnType,
     });
 
 class $$TransactionsTableFilterComposer
@@ -2623,6 +2673,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<int> get accountId => $composableBuilder(
     column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get txnType => $composableBuilder(
+    column: $table.txnType,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2680,6 +2735,11 @@ class $$TransactionsTableOrderingComposer
     column: $table.accountId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get txnType => $composableBuilder(
+    column: $table.txnType,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TransactionsTableAnnotationComposer
@@ -2719,6 +2779,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<int> get accountId =>
       $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get txnType =>
+      $composableBuilder(column: $table.txnType, builder: (column) => column);
 }
 
 class $$TransactionsTableTableManager
@@ -2761,6 +2824,7 @@ class $$TransactionsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> rawInput = const Value.absent(),
                 Value<int> accountId = const Value.absent(),
+                Value<String> txnType = const Value.absent(),
               }) => TransactionsCompanion(
                 id: id,
                 uuid: uuid,
@@ -2771,6 +2835,7 @@ class $$TransactionsTableTableManager
                 createdAt: createdAt,
                 rawInput: rawInput,
                 accountId: accountId,
+                txnType: txnType,
               ),
           createCompanionCallback:
               ({
@@ -2783,6 +2848,7 @@ class $$TransactionsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> rawInput = const Value.absent(),
                 Value<int> accountId = const Value.absent(),
+                Value<String> txnType = const Value.absent(),
               }) => TransactionsCompanion.insert(
                 id: id,
                 uuid: uuid,
@@ -2793,6 +2859,7 @@ class $$TransactionsTableTableManager
                 createdAt: createdAt,
                 rawInput: rawInput,
                 accountId: accountId,
+                txnType: txnType,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

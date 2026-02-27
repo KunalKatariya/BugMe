@@ -8,6 +8,7 @@ part 'app_database.g.dart';
 // ── Table definitions ──────────────────────────────────────────────────────
 
 /// A single recorded expense transaction.
+/// [txnType] is one of: 'expense' | 'investment' | 'recurring'
 class Transactions extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get uuid => text().withLength(min: 36, max: 36)();
@@ -18,6 +19,9 @@ class Transactions extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   TextColumn get rawInput => text().nullable()();
   IntColumn get accountId => integer().withDefault(const Constant(1))();
+  /// 'expense' | 'investment' | 'recurring'
+  TextColumn get txnType =>
+      text().withDefault(const Constant('expense'))();
 }
 
 /// Monthly budget allocation per category.
@@ -79,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -105,6 +109,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(recurringPayments);
+          }
+          if (from < 6) {
+            // Add transaction type column; existing rows default to 'expense'
+            await m.addColumn(transactions, transactions.txnType);
           }
         },
       );
@@ -164,7 +172,10 @@ class AppDatabase extends _$AppDatabase {
         .get();
     final map = <String, double>{};
     for (final row in rows) {
-      map[row.category] = (map[row.category] ?? 0) + row.amount;
+      // Only discretionary expenses count against category budgets
+      if (row.txnType == 'expense') {
+        map[row.category] = (map[row.category] ?? 0) + row.amount;
+      }
     }
     return map;
   }
@@ -277,6 +288,17 @@ class AppDatabase extends _$AppDatabase {
           sipLastContributed: Value(now),
         ),
       );
+      // Record as an investment transaction (excluded from category budgets)
+      const uuid = Uuid();
+      await insertTransaction(TransactionsCompanion.insert(
+        uuid: uuid.v4(),
+        amount: contribution,
+        category: 'Investment',
+        description: 'SIP – ${goal.name}',
+        date: now,
+        accountId: Value(goal.accountId),
+        txnType: const Value('investment'),
+      ));
     }
   }
 
@@ -309,7 +331,7 @@ class AppDatabase extends _$AppDatabase {
     const uuid = Uuid();
     for (final r in list) {
       if (r.nextDueDate.isAfter(now)) continue;
-      // Create transaction
+      // Create transaction tagged as recurring (excluded from category budgets)
       await insertTransaction(TransactionsCompanion.insert(
         uuid: uuid.v4(),
         amount: r.amount,
@@ -317,6 +339,7 @@ class AppDatabase extends _$AppDatabase {
         description: r.label,
         date: r.nextDueDate,
         accountId: Value(r.accountId),
+        txnType: const Value('recurring'),
       ));
       // Advance nextDueDate
       DateTime next;
@@ -376,6 +399,7 @@ class AppDatabase extends _$AppDatabase {
             'createdAt': t.createdAt.toIso8601String(),
             'rawInput': t.rawInput,
             'accountId': t.accountId,
+            'txnType': t.txnType,
           }).toList(),
       'allocations': alloc.map((b) => {
             'month': b.month,
@@ -440,6 +464,7 @@ class AppDatabase extends _$AppDatabase {
           date: DateTime.parse(t['date'] as String),
           accountId: Value(t['accountId'] as int),
           rawInput: Value(t['rawInput'] as String?),
+          txnType: Value(t['txnType'] as String? ?? 'expense'),
         ));
       }
       // Insert allocations

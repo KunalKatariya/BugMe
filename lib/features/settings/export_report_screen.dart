@@ -164,6 +164,8 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
     // ── Sheet 2: Budget ────────────────────────────────────────────────
     final spendMap = <String, double>{};
     for (final t in txns) {
+      // Only discretionary expenses count against category budgets
+      if ((t.txnType as String? ?? 'expense') != 'expense') continue;
       final cat = t.category as String;
       spendMap[cat] = (spendMap[cat] ?? 0) + (t.amount as double);
     }
@@ -239,10 +241,13 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
       final m   = DateFormat('yyyy-MM').format(t.date as DateTime);
       final cat = t.category as String;
       final amt = t.amount as double;
-      monthlySpend[m]  = (monthlySpend[m] ?? 0) + amt;
-      catMonthSpend[cat] ??= {};
-      catMonthSpend[cat]![m] = (catMonthSpend[cat]![m] ?? 0) + amt;
-      catSpend[cat] = (catSpend[cat] ?? 0) + amt;
+      // Monthly total shows all outflows; category breakdown is expenses only
+      monthlySpend[m] = (monthlySpend[m] ?? 0) + amt;
+      if ((t.txnType as String? ?? 'expense') == 'expense') {
+        catMonthSpend[cat] ??= {};
+        catMonthSpend[cat]![m] = (catMonthSpend[cat]![m] ?? 0) + amt;
+        catSpend[cat] = (catSpend[cat] ?? 0) + amt;
+      }
     }
 
     // ── Sheet 1: Monthly Summary ───────────────────────────────────────

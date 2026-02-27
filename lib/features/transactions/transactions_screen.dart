@@ -300,6 +300,44 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   }
 }
 
+// ── Transaction type badge helper ─────────────────────────────────────────
+
+/// Returns a subtitle widget that shows the category name plus, for non-expense
+/// transactions, a small coloured pill denoting the transaction type.
+Widget _txnSubtitle(Transaction t, TextTheme tt, ColorScheme cs) {
+  if (t.txnType == 'expense') {
+    return Text(t.category, style: tt.bodySmall);
+  }
+  final isInvestment = t.txnType == 'investment';
+  final badgeColor =
+      isInvestment ? const Color(0xFF4CAF50) : const Color(0xFF42A5F5);
+  final badgeLabel = isInvestment ? '📈 Investment' : '🔄 Auto-pay';
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(t.category, style: tt.bodySmall),
+      const SizedBox(width: 6),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: badgeColor.withAlpha(28),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: badgeColor.withAlpha(100), width: 0.8),
+        ),
+        child: Text(
+          badgeLabel,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: badgeColor,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 // ── Filter chip ────────────────────────────────────────────────────────────
 
 class _Chip extends StatelessWidget {
@@ -438,11 +476,15 @@ class _TxnGroup extends StatelessWidget {
                         style: tt.bodyLarge?.copyWith(
                             fontSize: 14, fontWeight: FontWeight.w600),
                       ),
-                      subtitle: Text(t.category, style: tt.bodySmall),
+                      subtitle: _txnSubtitle(t, tt, cs),
                       trailing: Text(
                         '-${formatAmount(t.amount, currency)}',
                         style: TextStyle(
-                            color: cs.onSurface,
+                            color: t.txnType == 'investment'
+                                ? const Color(0xFF4CAF50)
+                                : t.txnType == 'recurring'
+                                    ? const Color(0xFF42A5F5)
+                                    : cs.onSurface,
                             fontWeight: FontWeight.w700,
                             fontSize: 14),
                       ),
