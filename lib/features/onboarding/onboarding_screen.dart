@@ -8,33 +8,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/providers/app_providers.dart';
 
+// ── Brand palette (extracted from BugMe logo) ─────────────────────────────
+const _kBg        = Color(0xFF060D03);
+const _kLime      = Color(0xFFA2DC48);
+const _kGold      = Color(0xFFFEC522);
+const _kDeepGreen = Color(0xFF2A4812);
+const _kMidGreen  = Color(0xFF3E7010);
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  OnboardingScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
-
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
-    with TickerProviderStateMixin {
-  final _pageCtrl  = PageController();
-  final _apiCtrl   = TextEditingController();
-  int   _page      = 0;
-  bool  _saving    = false;
-
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
+  final _pageCtrl = PageController();
+  final _apiCtrl  = TextEditingController();
+  int  _page      = 0;
+  bool _saving    = false;
   static const _total = 4;
-
-  // Per-page accent colours
-  static const _accents = [
-    Color(0xFF7C4DFF), // violet  – welcome
-    Color(0xFF2979FF), // blue    – voice
-    Color(0xFF00BFA5), // teal    – budget
-    Color(0xFFFFA726), // amber   – API key
-  ];
 
   @override
   void dispose() {
@@ -46,7 +42,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   void _next() {
     if (_page < _total - 1) {
       _pageCtrl.nextPage(
-        duration: const Duration(milliseconds: 420),
+        duration: const Duration(milliseconds: 460),
         curve: Curves.easeInOutCubic,
       );
     }
@@ -56,75 +52,68 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     setState(() => _saving = true);
     final key = _apiCtrl.text.trim();
     if (key.isNotEmpty) {
-      final svc = ref.read(geminiServiceProvider);
-      await svc.setApiKey(key);
+      await ref.read(geminiServiceProvider).setApiKey(key);
       ref.read(apiKeyProvider.notifier).state = key;
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
-    if (mounted) {
-      ref.read(onboardingDoneProvider.notifier).state = true;
-    }
+    if (mounted) ref.read(onboardingDoneProvider.notifier).state = true;
   }
 
   @override
   Widget build(BuildContext context) {
-    final accent = _accents[_page];
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarBrightness: Brightness.dark,
         statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: _kBg,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF04040F),
+        backgroundColor: _kBg,
         body: Stack(
           children: [
-            // ── Ambient glow that shifts colour per page ──────────────────
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
+            // Ambient forest-green glow top-left
+            Container(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: const Alignment(0, -0.4),
-                  radius: 1.1,
-                  colors: [
-                    accent.withAlpha(45),
-                    Colors.transparent,
-                  ],
+                  center: const Alignment(-0.3, -0.65),
+                  radius: 1.0,
+                  colors: [_kDeepGreen.withAlpha(100), Colors.transparent],
                 ),
               ),
             ),
-
-            // ── Pages ─────────────────────────────────────────────────────
+            // Lime glow bottom-right
+            Align(
+              alignment: const Alignment(1.3, 1.3),
+              child: Container(
+                width: 300, height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [_kLime.withAlpha(18), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
             PageView(
               controller: _pageCtrl,
               physics: _page == _total - 1
                   ? const NeverScrollableScrollPhysics()
-                  : const BouncingScrollPhysics(),
+                  : const ClampingScrollPhysics(),
               onPageChanged: (p) => setState(() => _page = p),
               children: [
-                _WelcomePage(accent: _accents[0]),
-                _VoicePage(accent: _accents[1]),
-                _BudgetPage(accent: _accents[2]),
-                _ApiKeyPage(
-                  accent: _accents[3],
-                  ctrl: _apiCtrl,
-                  saving: _saving,
-                  onSkip: _finish,
-                ),
+                const _WelcomePage(),
+                const _VoicePage(),
+                const _BudgetPage(),
+                _ApiKeyPage(ctrl: _apiCtrl, saving: _saving),
               ],
             ),
-
-            // ── Bottom bar ────────────────────────────────────────────────
             Positioned(
               bottom: 0, left: 0, right: 0,
               child: _BottomBar(
                 page: _page,
                 total: _total,
-                accent: accent,
                 saving: _saving,
-                apiCtrl: _apiCtrl,
                 onNext: _next,
                 onFinish: _finish,
               ),
@@ -137,12 +126,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Page 1 — Welcome
+//  Page 1 — Welcome (logo hero)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _WelcomePage extends StatefulWidget {
-  final Color accent;
-  const _WelcomePage({required this.accent});
+  const _WelcomePage();
   @override
   State<_WelcomePage> createState() => _WelcomePageState();
 }
@@ -156,7 +144,7 @@ class _WelcomePageState extends State<_WelcomePage>
     super.initState();
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 2200),
     )..repeat(reverse: true);
   }
 
@@ -175,133 +163,160 @@ class _WelcomePageState extends State<_WelcomePage>
           children: [
             const Spacer(flex: 2),
 
-            // ── Mic glow illustration ──────────────────────────────────
+            // ── Logo with pulsing lime rings + orbiting dots ──────────
             AnimatedBuilder(
               animation: _pulse,
-              builder: (_, _) => Stack(
-                alignment: Alignment.center,
-                children: [
-                  // outer ring
-                  Container(
-                    width: 180 + 20 * _pulse.value,
-                    height: 180 + 20 * _pulse.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: widget.accent
-                          .withAlpha((12 * (1 - _pulse.value)).round()),
-                      border: Border.all(
-                        color: widget.accent
-                            .withAlpha((30 * (1 - _pulse.value)).round()),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  // mid ring
-                  Container(
-                    width: 140,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: widget.accent.withAlpha(20),
-                      border: Border.all(
-                        color: widget.accent.withAlpha(50),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                  // core
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: widget.accent.withAlpha(35),
-                      boxShadow: [
-                        BoxShadow(
-                          color: widget.accent.withAlpha(80),
-                          blurRadius: 30,
-                          spreadRadius: 4,
+              builder: (_, _) {
+                final v = _pulse.value;
+                return SizedBox(
+                  width: 260, height: 260,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outermost pulse ring
+                      Container(
+                        width: 230 + 22 * v,
+                        height: 230 + 22 * v,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _kLime.withAlpha((16 + 10 * (1 - v)).round()),
+                            width: 1,
+                          ),
                         ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text('🎤',
-                          style: TextStyle(fontSize: 42)),
-                    ),
-                  ),
-
-                  // Orbiting dot top-right
-                  Transform.translate(
-                    offset: Offset(
-                      70 * math.cos(-0.4 + _pulse.value * 0.4),
-                      -70 * math.sin(-0.4 + _pulse.value * 0.4),
-                    ),
-                    child: Container(
-                      width: 12, height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: widget.accent.withAlpha(180),
-                        boxShadow: [
-                          BoxShadow(
-                            color: widget.accent.withAlpha(120),
-                            blurRadius: 8),
-                        ],
                       ),
-                    ),
-                  ),
-                  // Orbiting dot bottom-left
-                  Transform.translate(
-                    offset: Offset(
-                      -60 * math.cos(1.2 - _pulse.value * 0.3),
-                      60 * math.sin(1.2 - _pulse.value * 0.3),
-                    ),
-                    child: Container(
-                      width: 8, height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: widget.accent.withAlpha(120),
+                      // Mid ring
+                      Container(
+                        width: 186,
+                        height: 186,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _kDeepGreen.withAlpha(55),
+                          border: Border.all(
+                              color: _kLime.withAlpha(38), width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _kLime.withAlpha((28 + 28 * v).round()),
+                              blurRadius: 28 + 18 * v,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      // Logo circle
+                      Container(
+                        width: 148,
+                        height: 148,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _kLime.withAlpha((55 + 45 * v).round()),
+                              blurRadius: 40,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      // Orbiting lime dot
+                      Transform.translate(
+                        offset: Offset(
+                          94 * math.cos(math.pi * 0.22 + v * math.pi * 0.28),
+                          -94 * math.sin(math.pi * 0.22 + v * math.pi * 0.28),
+                        ),
+                        child: Container(
+                          width: 12, height: 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _kLime,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: _kLime.withAlpha(160), blurRadius: 8),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Orbiting gold dot
+                      Transform.translate(
+                        offset: Offset(
+                          -82 * math.cos(math.pi * 0.68 - v * math.pi * 0.22),
+                          82 * math.sin(math.pi * 0.68 - v * math.pi * 0.22),
+                        ),
+                        child: Container(
+                          width: 9, height: 9,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _kGold.withAlpha(210),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: _kGold.withAlpha(110), blurRadius: 7),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Small secondary lime dot
+                      Transform.translate(
+                        offset: Offset(
+                          78 * math.cos(math.pi * 1.4 + v * math.pi * 0.18),
+                          78 * math.sin(math.pi * 1.4 + v * math.pi * 0.18),
+                        ),
+                        child: Container(
+                          width: 6, height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _kLime.withAlpha(180),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
 
             const Spacer(flex: 2),
 
-            // ── Text ──────────────────────────────────────────────────
-            const Text(
-              'Meet BugMe.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 36,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.2,
-                height: 1.1,
+            // Wordmark with lime→gold gradient
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [_kLime, _kGold],
+              ).createShader(bounds),
+              child: const Text(
+                'BugMe',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 52,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -2.0,
+                  height: 1.0,
+                ),
               ),
             )
                 .animate()
-                .fadeIn(delay: 200.ms, duration: 500.ms)
-                .slideY(begin: 0.15, duration: 500.ms,
-                    curve: Curves.easeOut),
+                .fadeIn(delay: 180.ms, duration: 500.ms)
+                .slideY(begin: 0.12, duration: 500.ms, curve: Curves.easeOut),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
-            const Text(
-              'Your AI-powered budget tracker.\nAll hands-free, voice-first.',
+            Text(
+              'Your voice-powered\nbudget companion.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white54,
-                fontSize: 16,
-                height: 1.6,
-                fontWeight: FontWeight.w400,
+                color: Colors.white.withAlpha(145),
+                fontSize: 17,
+                height: 1.55,
               ),
             )
                 .animate()
-                .fadeIn(delay: 380.ms, duration: 500.ms)
-                .slideY(begin: 0.1, duration: 500.ms,
-                    curve: Curves.easeOut),
+                .fadeIn(delay: 320.ms, duration: 500.ms)
+                .slideY(begin: 0.08),
 
             const Spacer(flex: 3),
           ],
@@ -316,8 +331,7 @@ class _WelcomePageState extends State<_WelcomePage>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _VoicePage extends StatelessWidget {
-  final Color accent;
-  const _VoicePage({required this.accent});
+  const _VoicePage();
 
   @override
   Widget build(BuildContext context) {
@@ -328,31 +342,38 @@ class _VoicePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Spacer(flex: 2),
-
-            // ── Illustration: voice → card ─────────────────────────────
             Center(
               child: Column(
                 children: [
-                  // Speech bubble card
+                  // Mic pill
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(8),
-                      borderRadius: BorderRadius.circular(18),
+                      color: _kDeepGreen.withAlpha(120),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: Colors.white.withAlpha(20), width: 1),
+                          color: _kLime.withAlpha(60), width: 1),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.mic_rounded,
-                            color: accent, size: 18),
-                        const SizedBox(width: 10),
+                        Container(
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _kLime.withAlpha(28),
+                            border: Border.all(
+                                color: _kLime.withAlpha(90)),
+                          ),
+                          child: const Icon(Icons.mic_rounded,
+                              color: _kLime, size: 16),
+                        ),
+                        const SizedBox(width: 12),
                         Text(
-                          '"Spent ₹150 on coffee"',
+                          '"Paid ₹240 for groceries"',
                           style: TextStyle(
-                              color: Colors.white.withAlpha(180),
+                              color: Colors.white.withAlpha(200),
                               fontSize: 14,
                               fontStyle: FontStyle.italic),
                         ),
@@ -360,85 +381,96 @@ class _VoicePage extends StatelessWidget {
                     ),
                   )
                       .animate()
-                      .fadeIn(delay: 100.ms, duration: 400.ms)
+                      .fadeIn(delay: 80.ms, duration: 400.ms)
                       .slideY(begin: -0.1),
-
-                  // Arrow down
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Icon(Icons.keyboard_arrow_down_rounded,
-                        color: accent.withAlpha(140), size: 28),
-                  )
-                      .animate()
-                      .fadeIn(delay: 300.ms, duration: 300.ms),
-
-                  // Result card
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                            width: 1, height: 20,
+                            color: _kLime.withAlpha(60)),
+                        const SizedBox(width: 8),
+                        Icon(Icons.auto_awesome_rounded,
+                            color: _kGold.withAlpha(180), size: 16),
+                        const SizedBox(width: 8),
+                        Container(
+                            width: 1, height: 20,
+                            color: _kGold.withAlpha(60)),
+                      ],
+                    ),
+                  ).animate().fadeIn(delay: 260.ms),
+                  // Parsed result card
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: accent.withAlpha(22),
-                      borderRadius: BorderRadius.circular(18),
+                      color: _kDeepGreen.withAlpha(80),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: accent.withAlpha(80), width: 1),
+                          color: _kLime.withAlpha(70), width: 1),
                       boxShadow: [
                         BoxShadow(
-                          color: accent.withAlpha(30),
-                          blurRadius: 20,
-                          spreadRadius: 1,
-                        ),
+                            color: _kLime.withAlpha(22),
+                            blurRadius: 24,
+                            spreadRadius: 1),
                       ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 46, height: 46,
                           decoration: BoxDecoration(
-                            color: accent.withAlpha(35),
+                            color: _kLime.withAlpha(22),
                             shape: BoxShape.circle,
+                            border: Border.all(
+                                color: _kLime.withAlpha(55), width: 1),
                           ),
                           child: const Center(
-                              child: Text('☕',
-                                  style: TextStyle(fontSize: 20))),
+                              child: Text('🛒',
+                                  style: TextStyle(fontSize: 22))),
                         ),
                         const SizedBox(width: 14),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Coffee',
+                            const Text('Groceries',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 14)),
+                                    fontSize: 15)),
                             Text('Food · Today',
                                 style: TextStyle(
-                                    color: Colors.white.withAlpha(120),
-                                    fontSize: 11)),
+                                    color: Colors.white.withAlpha(110),
+                                    fontSize: 12)),
                           ],
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 28),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Text('−₹150',
+                            const Text('−₹240',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 15)),
+                                    fontSize: 16)),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                  horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
-                                color: accent.withAlpha(40),
+                                color: _kLime.withAlpha(28),
                                 borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: _kLime.withAlpha(75),
+                                    width: 0.7),
                               ),
-                              child: Text('AI parsed',
+                              child: const Text('AI',
                                   style: TextStyle(
-                                      color: accent,
+                                      color: _kLime,
                                       fontSize: 9,
-                                      fontWeight: FontWeight.w700)),
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.5)),
                             ),
                           ],
                         ),
@@ -446,58 +478,39 @@ class _VoicePage extends StatelessWidget {
                     ),
                   )
                       .animate()
-                      .fadeIn(delay: 480.ms, duration: 400.ms)
+                      .fadeIn(delay: 440.ms, duration: 420.ms)
                       .slideY(begin: 0.1),
                 ],
               ),
             ),
-
             const Spacer(flex: 2),
-
-            // ── Text ──────────────────────────────────────────────────
             const Text(
               'Just say it.',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 34,
+                fontSize: 38,
                 fontWeight: FontWeight.w900,
-                letterSpacing: -1.0,
+                letterSpacing: -1.2,
               ),
-            )
-                .animate()
-                .fadeIn(delay: 150.ms, duration: 400.ms)
-                .slideY(begin: 0.1),
-
+            ).animate().fadeIn(delay: 120.ms, duration: 400.ms).slideY(begin: 0.1),
             const SizedBox(height: 12),
-
             Text(
-              'Speak naturally. BugMe uses Gemini AI to understand your '
-              'words and log the transaction in seconds — amount, '
-              'category, and date included.',
+              'BugMe listens to natural speech and uses Gemini AI to '
+              'extract amount, category, and date — all in one shot.',
               style: TextStyle(
-                color: Colors.white.withAlpha(150),
-                fontSize: 15,
-                height: 1.65,
-              ),
-            )
-                .animate()
-                .fadeIn(delay: 280.ms, duration: 400.ms),
-
+                  color: Colors.white.withAlpha(145),
+                  fontSize: 15,
+                  height: 1.65),
+            ).animate().fadeIn(delay: 240.ms, duration: 400.ms),
             const SizedBox(height: 20),
-
-            // Feature chips
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _Chip(label: '🎤  Voice-first', accent: accent),
-                _Chip(label: '🤖  Gemini AI', accent: accent),
-                _Chip(label: '⚡  Instant', accent: accent),
+              spacing: 8, runSpacing: 8,
+              children: const [
+                _BrandChip(label: '🎤  Voice-first'),
+                _BrandChip(label: '🤖  Gemini AI'),
+                _BrandChip(label: '⚡  Instant log'),
               ],
-            )
-                .animate()
-                .fadeIn(delay: 420.ms, duration: 400.ms),
-
+            ).animate().fadeIn(delay: 380.ms, duration: 400.ms),
             const Spacer(flex: 3),
           ],
         ),
@@ -511,16 +524,15 @@ class _VoicePage extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BudgetPage extends StatelessWidget {
-  final Color accent;
-  const _BudgetPage({required this.accent});
+  const _BudgetPage();
 
   @override
   Widget build(BuildContext context) {
     const bars = [
-      ('🍕', 'Food',     0.65, '₹3,250 / ₹5,000'),
-      ('🚗', 'Travel',   0.82, '₹4,100 / ₹5,000'),
-      ('🛍️', 'Shopping', 0.30, '₹900 / ₹3,000'),
-      ('🎯', 'SIP Goal', 0.55, '₹5,500 / ₹10,000'),
+      ('🍕', 'Food',       0.62, '₹3,100 / ₹5,000', false),
+      ('🚗', 'Travel',     0.84, '₹4,200 / ₹5,000', true),
+      ('🛍️', 'Shopping',  0.28, '₹840 / ₹3,000',   false),
+      ('📈', 'SIP Goal',   0.55, '₹5,500 / ₹10,000', false),
     ];
 
     return SafeArea(
@@ -530,28 +542,33 @@ class _BudgetPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Spacer(flex: 2),
-
-            // ── Illustration: budget bars ──────────────────────────────
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(6),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: Colors.white.withAlpha(15), width: 1),
+                color: _kDeepGreen.withAlpha(55),
+                borderRadius: BorderRadius.circular(22),
+                border:
+                    Border.all(color: _kLime.withAlpha(28), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                      color: _kLime.withAlpha(10),
+                      blurRadius: 30,
+                      spreadRadius: 1),
+                ],
               ),
               child: Column(
                 children: bars.asMap().entries.map((e) {
-                  final i     = e.key;
-                  final b     = e.value;
-                  final emoji = b.$1;
-                  final label = b.$2;
-                  final ratio = b.$3;
-                  final text  = b.$4;
-                  final isOver = ratio > 0.80;
-                  final barColor = isOver
+                  final i      = e.key;
+                  final b      = e.value;
+                  final emoji  = b.$1;
+                  final label  = b.$2;
+                  final ratio  = b.$3;
+                  final text   = b.$4;
+                  final isOver = b.$5;
+                  final barCol = isOver
                       ? const Color(0xFFFF6B6B)
-                      : accent;
+                      : _kLime;
 
                   return Padding(
                     padding: EdgeInsets.only(
@@ -572,31 +589,59 @@ class _BudgetPage extends StatelessWidget {
                             const Spacer(),
                             Text(text,
                                 style: TextStyle(
-                                    color: Colors.white.withAlpha(100),
+                                    color: Colors.white.withAlpha(90),
                                     fontSize: 10)),
+                            if (isOver)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 6),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(
+                                          horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF6B6B)
+                                        .withAlpha(22),
+                                    borderRadius:
+                                        BorderRadius.circular(4),
+                                  ),
+                                  child: const Text('Over',
+                                      style: TextStyle(
+                                          color: Color(0xFFFF6B6B),
+                                          fontSize: 8,
+                                          fontWeight:
+                                              FontWeight.w800)),
+                                ),
+                              ),
                           ],
                         ),
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 8),
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(5),
                           child: Stack(
                             children: [
                               Container(
                                   height: 6,
-                                  color: Colors.white.withAlpha(12)),
+                                  color: Colors.white.withAlpha(10)),
                               FractionallySizedBox(
-                                widthFactor: ratio,
+                                widthFactor: ratio.clamp(0.0, 1.0),
                                 child: Container(
                                   height: 6,
                                   decoration: BoxDecoration(
-                                    color: barColor,
+                                    gradient: LinearGradient(
+                                      colors: isOver
+                                          ? [
+                                              const Color(0xFFFF6B6B),
+                                              const Color(0xFFFF9B9B),
+                                            ]
+                                          : [_kMidGreen, barCol],
+                                    ),
                                     borderRadius:
-                                        BorderRadius.circular(4),
+                                        BorderRadius.circular(5),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: barColor.withAlpha(120),
-                                        blurRadius: 6,
-                                      ),
+                                          color: barCol.withAlpha(100),
+                                          blurRadius: 5),
                                     ],
                                   ),
                                 ),
@@ -606,61 +651,44 @@ class _BudgetPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ).animate().fadeIn(
-                      delay: Duration(milliseconds: 100 + i * 120),
-                      duration: 400.ms).slideX(begin: 0.05);
+                  )
+                      .animate()
+                      .fadeIn(
+                          delay: Duration(milliseconds: 80 + i * 100),
+                          duration: 380.ms)
+                      .slideX(begin: 0.04);
                 }).toList(),
               ),
-            )
-                .animate()
-                .fadeIn(delay: 80.ms, duration: 400.ms),
-
+            ).animate().fadeIn(delay: 60.ms, duration: 380.ms),
             const Spacer(flex: 2),
-
-            // ── Text ──────────────────────────────────────────────────
             const Text(
               'Know where\nit goes.',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 34,
+                fontSize: 38,
                 fontWeight: FontWeight.w900,
-                letterSpacing: -1.0,
+                letterSpacing: -1.2,
                 height: 1.15,
               ),
-            )
-                .animate()
-                .fadeIn(delay: 150.ms, duration: 400.ms)
-                .slideY(begin: 0.1),
-
+            ).animate().fadeIn(delay: 140.ms, duration: 400.ms).slideY(begin: 0.1),
             const SizedBox(height: 12),
-
             Text(
-              'Set monthly budgets per category. Add savings goals with '
-              'auto SIPs. Recurring bills run on autopilot — nothing '
-              'slips through.',
+              'Set per-category budgets, hit savings goals with auto SIPs, '
+              'and let recurring bills run on autopilot.',
               style: TextStyle(
-                color: Colors.white.withAlpha(150),
-                fontSize: 15,
-                height: 1.65,
-              ),
-            )
-                .animate()
-                .fadeIn(delay: 280.ms, duration: 400.ms),
-
+                  color: Colors.white.withAlpha(145),
+                  fontSize: 15,
+                  height: 1.65),
+            ).animate().fadeIn(delay: 260.ms, duration: 400.ms),
             const SizedBox(height: 20),
-
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _Chip(label: '📊  Budgets', accent: accent),
-                _Chip(label: '🎯  Goals & SIP', accent: accent),
-                _Chip(label: '🔄  Recurring', accent: accent),
+              spacing: 8, runSpacing: 8,
+              children: const [
+                _BrandChip(label: '📊  Budgets'),
+                _BrandChip(label: '🎯  Goals & SIP', gold: true),
+                _BrandChip(label: '🔄  Auto-pay'),
               ],
-            )
-                .animate()
-                .fadeIn(delay: 400.ms, duration: 400.ms),
-
+            ).animate().fadeIn(delay: 390.ms, duration: 400.ms),
             const Spacer(flex: 3),
           ],
         ),
@@ -674,160 +702,143 @@ class _BudgetPage extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ApiKeyPage extends StatelessWidget {
-  final Color accent;
   final TextEditingController ctrl;
   final bool saving;
-  final VoidCallback onSkip;
-
-  const _ApiKeyPage({
-    required this.accent,
-    required this.ctrl,
-    required this.saving,
-    required this.onSkip,
-  });
+  const _ApiKeyPage({required this.ctrl, required this.saving});
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(28, 0, 28, 200),
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 210),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 24),
-
-            // ── Illustration ──────────────────────────────────────────
+            // Logo with gold AI badge
             Center(
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 128, height: 128,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: accent.withAlpha(20),
+                      color: Colors.white,
                       border: Border.all(
-                          color: accent.withAlpha(60), width: 1.5),
+                          color: _kGold.withAlpha(80), width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: accent.withAlpha(50),
-                          blurRadius: 40,
-                          spreadRadius: 2,
-                        ),
+                            color: _kGold.withAlpha(65),
+                            blurRadius: 50,
+                            spreadRadius: 4),
+                        BoxShadow(
+                            color: _kLime.withAlpha(35),
+                            blurRadius: 30),
                       ],
                     ),
-                    child: const Center(
-                        child: Text('🤖',
-                            style: TextStyle(fontSize: 50))),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-
-                  // AI chip badge
                   Positioned(
-                    top: 12,
-                    right: 12,
+                    top: 10, right: 6,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                          horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: accent,
+                        gradient: const LinearGradient(
+                            colors: [_kGold, Color(0xFFFED44A)]),
                         borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                              color: _kGold.withAlpha(100),
+                              blurRadius: 8),
+                        ],
                       ),
                       child: const Text('AI',
                           style: TextStyle(
-                              color: Colors.black,
+                              color: _kBg,
                               fontSize: 10,
-                              fontWeight: FontWeight.w900)),
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5)),
                     ),
                   ),
                 ],
               ),
             )
                 .animate()
-                .fadeIn(delay: 80.ms, duration: 500.ms)
-                .scale(begin: const Offset(0.85, 0.85),
-                    duration: 500.ms, curve: Curves.easeOut),
+                .fadeIn(delay: 60.ms, duration: 500.ms)
+                .scale(
+                    begin: const Offset(0.85, 0.85),
+                    duration: 500.ms,
+                    curve: Curves.easeOut),
 
             const SizedBox(height: 28),
-
-            // ── Text ──────────────────────────────────────────────────
             const Text(
-              'One last thing.',
+              'Power it with AI.',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 34,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -1.0,
               ),
-            )
-                .animate()
-                .fadeIn(delay: 150.ms, duration: 400.ms)
-                .slideY(begin: 0.1),
-
+            ).animate().fadeIn(delay: 140.ms, duration: 400.ms).slideY(begin: 0.1),
             const SizedBox(height: 12),
-
             Text(
-              'BugMe uses Google Gemini AI to parse your voice entries. '
-              'Paste your free API key below to unlock it.',
+              'BugMe uses Google Gemini to understand your voice. '
+              'Get a free API key and paste it below.',
               style: TextStyle(
-                color: Colors.white.withAlpha(150),
-                fontSize: 15,
-                height: 1.65,
-              ),
-            )
-                .animate()
-                .fadeIn(delay: 260.ms, duration: 400.ms),
-
+                  color: Colors.white.withAlpha(145),
+                  fontSize: 15,
+                  height: 1.65),
+            ).animate().fadeIn(delay: 240.ms, duration: 400.ms),
             const SizedBox(height: 24),
-
-            // ── API Key field ──────────────────────────────────────────
             TextField(
               controller: ctrl,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'AIza...',
-                hintStyle: TextStyle(color: Colors.white.withAlpha(60)),
+                hintStyle:
+                    TextStyle(color: Colors.white.withAlpha(55)),
                 labelText: 'Gemini API Key',
-                labelStyle: TextStyle(color: Colors.white.withAlpha(120)),
+                labelStyle:
+                    TextStyle(color: Colors.white.withAlpha(110)),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide(
-                      color: Colors.white.withAlpha(30), width: 1),
+                      color: _kDeepGreen.withAlpha(180), width: 1.5),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide:
-                      BorderSide(color: accent, width: 1.5),
+                      const BorderSide(color: _kLime, width: 1.5),
                 ),
                 filled: true,
-                fillColor: Colors.white.withAlpha(8),
+                fillColor: _kDeepGreen.withAlpha(50),
                 prefixIcon: Icon(Icons.key_outlined,
-                    size: 18,
-                    color: Colors.white.withAlpha(100)),
+                    size: 18, color: Colors.white.withAlpha(90)),
                 suffixIcon: ValueListenableBuilder(
                   valueListenable: ctrl,
                   builder: (_, v, _) => v.text.isNotEmpty
-                      ? Icon(Icons.check_circle_rounded,
-                          color: accent, size: 18)
+                      ? const Icon(Icons.check_circle_rounded,
+                          color: _kLime, size: 18)
                       : const SizedBox.shrink(),
                 ),
               ),
               onTapOutside: (_) => FocusScope.of(context).unfocus(),
-            )
-                .animate()
-                .fadeIn(delay: 350.ms, duration: 400.ms),
-
+            ).animate().fadeIn(delay: 330.ms, duration: 400.ms),
             const SizedBox(height: 14),
-
-            // ── Get free key link ──────────────────────────────────────
             GestureDetector(
               onTap: () {
                 Clipboard.setData(const ClipboardData(
                     text: 'https://aistudio.google.com/app/apikey'));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('Link copied to clipboard!'),
-                    backgroundColor: accent,
+                    content: const Text('Link copied!'),
+                    backgroundColor: _kLime,
                     duration: const Duration(seconds: 2),
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
@@ -837,22 +848,19 @@ class _ApiKeyPage extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  Icon(Icons.open_in_new_rounded,
-                      size: 14, color: accent),
-                  const SizedBox(width: 6),
+                  const Icon(Icons.open_in_new_rounded,
+                      size: 14, color: _kGold),
+                  const SizedBox(width: 7),
                   Text(
-                    'Get a free key at aistudio.google.com  (tap to copy)',
+                    'aistudio.google.com  ·  tap to copy',
                     style: TextStyle(
-                      color: accent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                        color: _kGold.withAlpha(220),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
-            )
-                .animate()
-                .fadeIn(delay: 430.ms, duration: 400.ms),
+            ).animate().fadeIn(delay: 430.ms, duration: 400.ms),
           ],
         ),
       ),
@@ -861,24 +869,20 @@ class _ApiKeyPage extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Bottom bar — dots + CTA button
+//  Bottom bar
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BottomBar extends StatelessWidget {
   final int page;
   final int total;
-  final Color accent;
   final bool saving;
-  final TextEditingController apiCtrl;
   final VoidCallback onNext;
   final VoidCallback onFinish;
 
   const _BottomBar({
     required this.page,
     required this.total,
-    required this.accent,
     required this.saving,
-    required this.apiCtrl,
     required this.onNext,
     required this.onFinish,
   });
@@ -888,17 +892,13 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 0),
+      padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            const Color(0xFF04040F).withAlpha(210),
-            const Color(0xFF04040F),
-          ],
-          stops: const [0, 0.3, 0.6],
+          colors: [Colors.transparent, _kBg.withAlpha(200), _kBg],
+          stops: const [0, 0.25, 0.55],
         ),
       ),
       child: SafeArea(
@@ -906,54 +906,52 @@ class _BottomBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Dot indicators ───────────────────────────────────────
+            // Dot indicators — lime→gold active pill
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(total, (i) {
-                final isActive = i == page;
+                final active = i == page;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOut,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: isActive ? 24 : 7,
+                  width: active ? 28 : 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? accent
-                        : Colors.white.withAlpha(40),
+                    gradient: active
+                        ? const LinearGradient(
+                            colors: [_kLime, _kGold])
+                        : null,
+                    color: active ? null : Colors.white.withAlpha(35),
                     borderRadius: BorderRadius.circular(4),
-                    boxShadow: isActive
+                    boxShadow: active
                         ? [
                             BoxShadow(
-                              color: accent.withAlpha(100),
-                              blurRadius: 8,
-                            )
+                                color: _kLime.withAlpha(100),
+                                blurRadius: 10),
                           ]
                         : [],
                   ),
                 );
               }),
             ),
-
             const SizedBox(height: 20),
-
-            // ── CTA button ────────────────────────────────────────────
+            // CTA button — always lime→gold gradient
             SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
+              width: double.infinity, height: 58,
+              child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(
-                    colors: [accent, accent.withAlpha(200)],
+                  gradient: const LinearGradient(
+                    colors: [_kLime, _kGold],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
+                  borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: accent.withAlpha(80),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                    ),
+                        color: _kLime.withAlpha(70),
+                        blurRadius: 24,
+                        offset: const Offset(0, 6)),
                   ],
                 ),
                 child: Material(
@@ -966,26 +964,24 @@ class _BottomBar extends StatelessWidget {
                           ? const SizedBox(
                               width: 22, height: 22,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ))
+                                  strokeWidth: 2.5,
+                                  color: _kBg))
                           : Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  _isLast ? "Let's go! 🚀" : 'Next',
+                                  _isLast ? "Let's go  🚀" : 'Continue',
                                   style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.2,
-                                  ),
+                                      color: _kBg,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.1),
                                 ),
                                 if (!_isLast) ...[
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 7),
                                   const Icon(
                                       Icons.arrow_forward_rounded,
-                                      color: Colors.white, size: 18),
+                                      color: _kBg, size: 18),
                                 ],
                               ],
                             ),
@@ -994,20 +990,14 @@ class _BottomBar extends StatelessWidget {
                 ),
               ),
             ),
-
-            const SizedBox(height: 10),
-
-            // ── Skip link (last page only) ─────────────────────────────
+            const SizedBox(height: 8),
             if (_isLast)
               TextButton(
                 onPressed: saving ? null : onFinish,
-                child: Text(
-                  'Skip for now',
-                  style: TextStyle(
-                      color: Colors.white.withAlpha(80),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400),
-                ),
+                child: Text('Skip for now',
+                    style: TextStyle(
+                        color: Colors.white.withAlpha(70),
+                        fontSize: 13)),
               )
             else
               const SizedBox(height: 40),
@@ -1019,31 +1009,29 @@ class _BottomBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Small reusable chip
+//  Brand chip
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Chip extends StatelessWidget {
+class _BrandChip extends StatelessWidget {
   final String label;
-  final Color accent;
-  const _Chip({required this.label, required this.accent});
+  final bool   gold;
+  const _BrandChip({required this.label, this.gold = false});
 
   @override
   Widget build(BuildContext context) {
+    final color = gold ? _kGold : _kLime;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
-        color: accent.withAlpha(22),
+        color: color.withAlpha(18),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withAlpha(70), width: 1),
+        border: Border.all(color: color.withAlpha(65), width: 1),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: accent,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700)),
     );
   }
 }
