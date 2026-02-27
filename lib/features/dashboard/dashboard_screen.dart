@@ -81,6 +81,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final dailySpend  = dailyAsync.valueOrNull ?? {};
     final profile     = ref.watch(userProfileProvider);
     final expandRatio = 1.0 - _collapseRatio;
+    final now          = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final isMonthEnded = month.compareTo(currentMonth) < 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
@@ -177,6 +180,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         tt: tt,
                         isDark: isDark,
                       ).animate().fadeIn(duration: 350.ms),
+                    ),
+
+                  // ── Month-end report ──────────────────────────────────
+                  if (isMonthEnded && (income > 0 || totalOutflow > 0))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: _MonthEndReport(
+                        income: income,
+                        totalSpent: totalOutflow,
+                        spend: spend,
+                        allocs: allocAsync.valueOrNull ?? [],
+                        currency: currency,
+                        monthLabel: monthLabel,
+                        cs: cs,
+                        tt: tt,
+                        isDark: isDark,
+                      ).animate().fadeIn(duration: 400.ms),
                     ),
 
                   // ── Recent grouped by date ────────────────────────────
@@ -1091,6 +1111,279 @@ class _DateGroup extends StatelessWidget {
           ]);
         }),
       ],
+    );
+  }
+}
+
+// ── Month-end report ───────────────────────────────────────────────────────
+
+class _MonthEndReport extends StatelessWidget {
+  final double income;
+  final double totalSpent;
+  final Map<String, double> spend;
+  final List<BudgetAllocation> allocs;
+  final AppCurrency currency;
+  final String monthLabel;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final bool isDark;
+
+  const _MonthEndReport({
+    required this.income,
+    required this.totalSpent,
+    required this.spend,
+    required this.allocs,
+    required this.currency,
+    required this.monthLabel,
+    required this.cs,
+    required this.tt,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasIncome = income > 0;
+    final saved     = hasIncome ? income - totalSpent : 0.0;
+    final isOver    = saved < -0.01;
+    final savedPct  = hasIncome && income > 0
+        ? ((saved.abs() / income) * 100).clamp(0, 100)
+        : 0.0;
+
+    // Find most overspent category
+    String? worstCat;
+    double worstExcess = 0;
+    for (final a in allocs) {
+      final s = spend[a.category] ?? 0;
+      final excess = s - a.allocatedAmount;
+      if (excess > worstExcess) { worstExcess = excess; worstCat = a.category; }
+    }
+    // Find most under-budget category (most savings)
+    String? bestCat;
+    double bestSaving = 0;
+    for (final a in allocs) {
+      final s = spend[a.category] ?? 0;
+      final saving = a.allocatedAmount - s;
+      if (saving > bestSaving && s > 0) { bestSaving = saving; bestCat = a.category; }
+    }
+    // Tip for next month
+    String tip;
+    if (!hasIncome) {
+      tip = 'Set your monthly income in the Budget tab to unlock full insights next month.';
+    } else if (isOver) {
+      tip = worstCat != null
+          ? 'Your biggest overspend was $worstCat. Consider capping it at ${formatAmount((spend[worstCat]! * 0.85).ceilToDouble(), currency)} next month.'
+          : 'You were over budget this month. Review your categories in the Budget tab.';
+    } else if (savedPct >= 20) {
+      tip = bestCat != null
+          ? 'Great discipline on $bestCat! Consider moving some of those savings toward a goal.'
+          : 'Excellent month! Put those savings to work — add a goal in the Goals & Planning screen.';
+    } else {
+      tip = 'You saved ${savedPct.toStringAsFixed(0)}%. Aim for 20%+ next month by trimming ${worstCat ?? 'your biggest category'}.';
+    }
+
+    final accentColor = isOver ? AppTheme.negative : AppTheme.positive;
+    final headerEmoji = isOver ? '😬' : savedPct >= 20 ? '🎉' : '👍';
+    final headerText  = isOver
+        ? 'Over budget by ${formatAmount(saved.abs(), currency)}'
+        : hasIncome
+            ? 'Saved ${formatAmount(saved, currency)} (${savedPct.toStringAsFixed(0)}%)'
+            : 'You spent ${formatAmount(totalSpent, currency)} this month';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: accentColor.withAlpha(10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withAlpha(50), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: accentColor.withAlpha(18),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(15)),
+            ),
+            child: Row(
+              children: [
+                Text(headerEmoji,
+                    style: const TextStyle(fontSize: 22)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$monthLabel Wrap-up',
+                          style: tt.labelSmall?.copyWith(
+                              letterSpacing: 1.1,
+                              color: accentColor.withAlpha(180),
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(headerText,
+                          style: tt.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: accentColor,
+                              fontSize: 15)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Stats row
+          if (hasIncome)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Row(
+                children: [
+                  _StatPill(
+                    label: 'Income',
+                    value: formatAmount(income, currency),
+                    color: cs.onSurfaceVariant,
+                    tt: tt,
+                  ),
+                  const SizedBox(width: 10),
+                  _StatPill(
+                    label: 'Spent',
+                    value: formatAmount(totalSpent, currency),
+                    color: isOver ? AppTheme.negative : cs.onSurface,
+                    tt: tt,
+                  ),
+                  const SizedBox(width: 10),
+                  _StatPill(
+                    label: isOver ? 'Over' : 'Saved',
+                    value: formatAmount(saved.abs(), currency),
+                    color: accentColor,
+                    tt: tt,
+                    highlight: true,
+                    accentColor: accentColor,
+                  ),
+                ],
+              ),
+            ),
+          // Insight rows
+          if (worstCat != null)
+            _InsightRow(
+              icon: '🔴',
+              label: 'Most overspent',
+              value: '$worstCat  +${formatAmount(worstExcess, currency)}',
+              tt: tt,
+              cs: cs,
+            ),
+          if (bestCat != null)
+            _InsightRow(
+              icon: '🟢',
+              label: 'Most under budget',
+              value: '$bestCat  -${formatAmount(bestSaving, currency)}',
+              tt: tt,
+              cs: cs,
+            ),
+          // Tip
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('💡', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(tip,
+                      style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          height: 1.5)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  final TextTheme tt;
+  final bool highlight;
+  final Color? accentColor;
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.tt,
+    this.highlight = false,
+    this.accentColor,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: highlight
+            ? BoxDecoration(
+                color: accentColor!.withAlpha(14),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accentColor!.withAlpha(50)),
+              )
+            : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: tt.labelSmall
+                    ?.copyWith(color: color.withAlpha(160), fontSize: 10)),
+            const SizedBox(height: 2),
+            Text(value,
+                style: tt.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightRow extends StatelessWidget {
+  final String icon, label, value;
+  final TextTheme tt;
+  final ColorScheme cs;
+  const _InsightRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tt,
+    required this.cs,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Column(
+        children: [
+          Divider(height: 1, thickness: 0.5, color: cs.outline),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                Text(icon, style: const TextStyle(fontSize: 12)),
+                const SizedBox(width: 8),
+                Text(label,
+                    style: tt.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant, fontSize: 11)),
+                const Spacer(),
+                Text(value,
+                    style: tt.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700, fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1294,21 +1294,10 @@ class _WalletBar extends StatelessWidget {
             ? AppTheme.positive
             : cs.primary;
 
+    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            (isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2))
-                .withAlpha(220),
-            isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2),
-          ],
-          stops: const [0, 0.25, 0.55],
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      color: bgColor,
       child: SafeArea(
         top: false,
         child: Container(
