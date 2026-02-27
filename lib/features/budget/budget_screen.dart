@@ -9,6 +9,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database/app_database.dart';
 import '../../data/providers/app_providers.dart';
+import '../goals/goals_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  BudgetScreen — zero-based income-first budget planner
@@ -146,7 +147,34 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         isDark: isDark,
                         cs: cs,
                         tt: tt,
-                        onManage: () {},  // stays in Goals tab
+                        onManage: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const GoalsScreen()),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const GoalsScreen()),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Manage Goals & Recurring Payments',
+                              style: TextStyle(
+                                  color: const Color(0xFF42A5F5),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_forward_rounded,
+                                color: Color(0xFF42A5F5), size: 14),
+                          ],
+                        ),
                       ),
                     ],
                   ),

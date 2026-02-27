@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers/app_providers.dart';
-import 'features/goals/goals_screen.dart';
+import 'features/budget/budget_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -152,7 +152,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
     DashboardScreen(),
     TransactionsScreen(),
     VoiceEntryScreen(),
-    GoalsScreen(),
+    BudgetScreen(),
     SettingsScreen(),
   ];
 
@@ -199,7 +199,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
                     _onTap(2);
                   },
                 ),
-                _NavItem(icon: Icons.flag_outlined,          activeIcon: Icons.flag_rounded,            label: 'Goals',   index: 3, current: _currentIndex, onTap: _onTap),
+                _NavItem(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet_rounded, label: 'Budget',   index: 3, current: _currentIndex, onTap: _onTap),
                 _NavItem(icon: Icons.settings_outlined,      activeIcon: Icons.settings_rounded,        label: 'Settings',index: 4, current: _currentIndex, onTap: _onTap),
               ],
             ),
