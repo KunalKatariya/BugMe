@@ -153,27 +153,42 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                               builder: (_) => const GoalsScreen()),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       GestureDetector(
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                               builder: (_) => const GoalsScreen()),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Manage Goals & Recurring Payments',
-                              style: TextStyle(
-                                  color: const Color(0xFF42A5F5),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.arrow_forward_rounded,
-                                color: Color(0xFF42A5F5), size: 14),
-                          ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1E1E1E)
+                                : const Color(0xFFEAEAEA),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: cs.outline, width: 0.5),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.flag_outlined,
+                                  size: 16, color: cs.onSurface),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Manage Goals & Recurring Payments',
+                                  style: TextStyle(
+                                      color: cs.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13),
+                                ),
+                              ),
+                              Icon(Icons.arrow_forward_rounded,
+                                  color: cs.onSurfaceVariant, size: 16),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -193,7 +208,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         subtitle: 'Your discretionary budgets',
                         value: formatAmount(totalVariable, currency),
                         icon: Icons.tune_rounded,
-                        color: const Color(0xFF7C4DFF),
+                        color: cs.primary,
                         tt: tt,
                         cs: cs,
                         isDark: isDark,
@@ -576,7 +591,6 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Budget copied from last month!'),
-          backgroundColor: const Color(0xFF7C4DFF),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -617,7 +631,7 @@ class _IncomeCard extends StatelessWidget {
         ? AppTheme.negative
         : unallocated < 1 && income > 0
             ? AppTheme.positive
-            : const Color(0xFF7C4DFF);
+            : cs.primary;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -654,21 +668,21 @@ class _IncomeCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF7C4DFF).withAlpha(18),
+                                color: cs.primary.withAlpha(18),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                    color: const Color(0xFF7C4DFF).withAlpha(80),
+                                    color: cs.primary.withAlpha(80),
                                     width: 1),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.add_rounded,
-                                      color: Color(0xFF7C4DFF), size: 16),
+                                  Icon(Icons.add_rounded,
+                                      color: cs.primary, size: 16),
                                   const SizedBox(width: 6),
                                   Text('Set your income',
                                       style: tt.bodyMedium?.copyWith(
-                                          color: const Color(0xFF7C4DFF),
+                                          color: cs.primary,
                                           fontWeight: FontWeight.w700)),
                                 ],
                               ),
@@ -708,7 +722,7 @@ class _IncomeCard extends StatelessWidget {
               label: '💳  Variable',
               value: formatAmount(variable, currency),
               portion: income > 0 ? (variable / income).clamp(0, 1) : 0,
-              color: const Color(0xFF7C4DFF),
+              color: cs.primary,
               tt: tt,
               cs: cs,
             ),
@@ -953,17 +967,17 @@ class _CommittedCard extends StatelessWidget {
                         ),
                         title: Text(r.label,
                             style: tt.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
+                                fontWeight: FontWeight.w600, fontSize: 14)),
                         subtitle: Text(
                           '${_freqLabel(r.frequency)} · ${r.category}',
                           style: tt.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant, fontSize: 11),
+                              color: cs.onSurfaceVariant, fontSize: 12),
                         ),
                         trailing: Text(
                           formatAmount(amt, currency),
                           style: const TextStyle(
                               color: Color(0xFF42A5F5),
-                              fontWeight: FontWeight.w700, fontSize: 13),
+                              fontWeight: FontWeight.w700, fontSize: 14),
                         ),
                       ),
                     ]);
@@ -991,17 +1005,17 @@ class _CommittedCard extends StatelessWidget {
                         ),
                         title: Text(g.name,
                             style: tt.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
+                                fontWeight: FontWeight.w600, fontSize: 14)),
                         subtitle: Text(
                           'SIP · Monthly investment',
                           style: tt.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant, fontSize: 11),
+                              color: cs.onSurfaceVariant, fontSize: 12),
                         ),
                         trailing: Text(
                           formatAmount(g.sipAmount!, currency),
                           style: const TextStyle(
                               color: Color(0xFF26A69A),
-                              fontWeight: FontWeight.w700, fontSize: 13),
+                              fontWeight: FontWeight.w700, fontSize: 14),
                         ),
                       ),
                     ]);
@@ -1120,7 +1134,7 @@ class _VariableCard extends StatelessWidget {
                                   Text(a.category,
                                       style: tt.bodyMedium?.copyWith(
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 13)),
+                                          fontSize: 14)),
                                   Row(children: [
                                     Text(
                                       formatAmount(spent, currency),
@@ -1230,20 +1244,20 @@ class _AddCategoryButton extends StatelessWidget {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFF7C4DFF).withAlpha(12),
+          color: cs.primary.withAlpha(12),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-              color: const Color(0xFF7C4DFF).withAlpha(60), width: 1),
+              color: cs.primary.withAlpha(60), width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add_rounded,
-                color: Color(0xFF7C4DFF), size: 18),
+            Icon(Icons.add_rounded,
+                color: cs.primary, size: 18),
             const SizedBox(width: 8),
             Text('Add Category',
                 style: tt.bodyMedium?.copyWith(
-                    color: const Color(0xFF7C4DFF),
+                    color: cs.primary,
                     fontWeight: FontWeight.w700)),
           ],
         ),
@@ -1273,11 +1287,12 @@ class _WalletBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt     = Theme.of(context).textTheme;
+    final cs     = Theme.of(context).colorScheme;
     final color  = isOver
         ? AppTheme.negative
         : unallocated < 1 && income > 0
             ? AppTheme.positive
-            : const Color(0xFF7C4DFF);
+            : cs.primary;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -1302,12 +1317,7 @@ class _WalletBar extends StatelessWidget {
             color: color.withAlpha(12),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: color.withAlpha(60)),
-            boxShadow: [
-              BoxShadow(
-                  color: color.withAlpha(30),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4)),
-            ],
+
           ),
           child: income == 0
               ? Row(
@@ -1346,7 +1356,7 @@ class _WalletBar extends StatelessWidget {
                             style: TextStyle(
                                 color: color,
                                 fontWeight: FontWeight.w800,
-                                fontSize: 14),
+                                fontSize: 15),
                           ),
                           Text(
                             '${formatAmount(income, currency)} total income',

@@ -50,11 +50,12 @@ class GoalsScreen extends ConsumerWidget {
                     left: 'MY GOALS',
                     right: '${goalsList.length} goal${goalsList.length != 1 ? 's' : ''}',
                     tt: tt,
+                    onAdd: () => _showAddGoal(context, ref),
                   ),
                   if (goalsList.isEmpty)
                     _EmptyCard(
                       emoji: '🎯',
-                      message: 'No goals yet.\nTap + New Goal to get started.',
+                      message: 'No goals yet.\nTap Add to get started.',
                       cs: cs,
                       tt: tt,
                       isDark: isDark,
@@ -125,15 +126,7 @@ class GoalsScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddGoal(context, ref),
-        backgroundColor: cs.onSurface,
-        foregroundColor: isDark ? Colors.black : Colors.white,
-        icon: const Icon(Icons.flag_outlined, size: 20),
-        label: const Text('New Goal',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-        elevation: 4,
-      ),
+
     );
   }
 
