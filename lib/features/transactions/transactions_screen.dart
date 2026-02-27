@@ -302,38 +302,62 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
 // ── Transaction type badge helper ─────────────────────────────────────────
 
-/// Returns a subtitle widget that shows the category name plus, for non-expense
-/// transactions, a small coloured pill denoting the transaction type.
-Widget _txnSubtitle(Transaction t, TextTheme tt, ColorScheme cs) {
-  if (t.txnType == 'expense') {
-    return Text(t.category, style: tt.bodySmall);
-  }
+/// Returns a subtitle widget showing a coloured category pill plus, for
+/// non-expense transactions, an additional type badge.
+Widget _txnSubtitle(Transaction t, TextTheme tt, ColorScheme cs, Color catColor) {
   final isInvestment = t.txnType == 'investment';
-  final badgeColor =
-      isInvestment ? const Color(0xFF4CAF50) : const Color(0xFF42A5F5);
-  final badgeLabel = isInvestment ? '📈 Investment' : '🔄 Auto-pay';
+  final isRecurring  = t.txnType == 'recurring';
+  final typeBadgeColor = isInvestment
+      ? const Color(0xFF4CAF50)
+      : isRecurring
+          ? const Color(0xFF42A5F5)
+          : null;
+  final typeBadgeLabel = isInvestment
+      ? '📈 Investment'
+      : isRecurring
+          ? '🔄 Auto-pay'
+          : null;
+
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(t.category, style: tt.bodySmall),
-      const SizedBox(width: 6),
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         decoration: BoxDecoration(
-          color: badgeColor.withAlpha(28),
+          color: catColor.withAlpha(22),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: badgeColor.withAlpha(100), width: 0.8),
+          border: Border.all(color: catColor.withAlpha(80), width: 0.8),
         ),
         child: Text(
-          badgeLabel,
+          t.category,
           style: TextStyle(
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: badgeColor,
-            letterSpacing: 0.2,
+            color: catColor,
+            letterSpacing: 0.1,
           ),
         ),
       ),
+      if (typeBadgeColor != null) ...[
+        const SizedBox(width: 5),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: typeBadgeColor.withAlpha(28),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: typeBadgeColor.withAlpha(100), width: 0.8),
+          ),
+          child: Text(
+            typeBadgeLabel!,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: typeBadgeColor,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ],
     ],
   );
 }
@@ -455,29 +479,35 @@ class _TxnGroup extends StatelessWidget {
                       onDelete(t);
                       return false;
                     },
-                    child: ListTile(
-                      contentPadding:
-                          const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                      onLongPress: () => onEdit(t),
-                      leading: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: color.withAlpha(20),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(emoji,
-                              style: const TextStyle(fontSize: 20)),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: color, width: 3),
                         ),
                       ),
-                      title: Text(
-                        t.description,
-                        style: tt.bodyLarge?.copyWith(
-                            fontSize: 14, fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: _txnSubtitle(t, tt, cs),
-                      trailing: Text(
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                        onLongPress: () => onEdit(t),
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: color.withAlpha(22),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(emoji,
+                                style: const TextStyle(fontSize: 20)),
+                          ),
+                        ),
+                        title: Text(
+                          t.description,
+                          style: tt.bodyLarge?.copyWith(
+                              fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: _txnSubtitle(t, tt, cs, color),
+                        trailing: Text(
                         '-${formatAmount(t.amount, currency)}',
                         style: TextStyle(
                             color: t.txnType == 'investment'
@@ -489,6 +519,7 @@ class _TxnGroup extends StatelessWidget {
                             fontSize: 14),
                       ),
                     ),
+                  ),
                   ),
                 ]);
               }).toList(),

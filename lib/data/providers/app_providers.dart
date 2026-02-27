@@ -257,6 +257,37 @@ class UserProfileNotifier extends Notifier<UserProfile> {
 final userProfileProvider =
     NotifierProvider<UserProfileNotifier, UserProfile>(UserProfileNotifier.new);
 
+// ── Monthly Income ────────────────────────────────────────────────────────
+
+/// Persists monthly income per account in SharedPreferences.
+/// Key format: `monthly_income_<accountId>`.
+class MonthlyIncomeNotifier extends Notifier<Map<int, double>> {
+  @override
+  Map<int, double> build() => {};
+
+  static String _k(int accountId) => 'monthly_income_$accountId';
+
+  Future<double> load(int accountId) async {
+    if (state.containsKey(accountId)) return state[accountId]!;
+    final prefs = await SharedPreferences.getInstance();
+    final val = prefs.getDouble(_k(accountId)) ?? 0.0;
+    state = {...state, accountId: val};
+    return val;
+  }
+
+  Future<void> set(int accountId, double income) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_k(accountId), income);
+    state = {...state, accountId: income};
+  }
+
+  double get(int accountId) => state[accountId] ?? 0.0;
+}
+
+final monthlyIncomeProvider =
+    NotifierProvider<MonthlyIncomeNotifier, Map<int, double>>(
+        MonthlyIncomeNotifier.new);
+
 // ── Onboarding ────────────────────────────────────────────────────────────
 
 /// null = loading, false = show onboarding, true = already done

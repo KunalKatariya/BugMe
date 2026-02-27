@@ -28,6 +28,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _scroll = ScrollController()..addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(userProfileProvider.notifier).load();
+      if (mounted) {
+        final acct = ref.read(selectedAccountProvider);
+        ref.read(monthlyIncomeProvider.notifier).load(acct);
+      }
     });
   }
 
@@ -72,6 +76,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final totalOutflow = ref.watch(totalMonthlyOutflowProvider);
     final totalBudget = allocAsync.valueOrNull
         ?.fold(0.0, (s, a) => s + a.allocatedAmount) ?? 0.0;
+    final incomeMap   = ref.watch(monthlyIncomeProvider);
+    final income      = incomeMap[selectedId] ?? 0.0;
     final dailySpend  = dailyAsync.valueOrNull ?? {};
     final profile     = ref.watch(userProfileProvider);
     final expandRatio = 1.0 - _collapseRatio;
@@ -118,6 +124,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 totalSpend: totalSpend,
                 totalOutflow: totalOutflow,
                 totalBudget: totalBudget,
+                income: income,
                 currency: currency,
                 monthLabel: monthLabel,
                 month: month,
@@ -292,6 +299,7 @@ class _HeroBackground extends StatelessWidget {
   final double totalSpend;   // expense-only, for budget badge comparison
   final double totalOutflow; // all types, shown as the hero number
   final double totalBudget;
+  final double income;
   final AppCurrency currency;
   final String monthLabel;
   final String month;
@@ -309,6 +317,7 @@ class _HeroBackground extends StatelessWidget {
     required this.totalSpend,
     required this.totalOutflow,
     required this.totalBudget,
+    required this.income,
     required this.currency,
     required this.monthLabel,
     required this.month,
@@ -335,6 +344,10 @@ class _HeroBackground extends StatelessWidget {
 
     final overBudget = totalBudget > 0 && totalSpend > totalBudget;
     final badgeColor = overBudget ? AppTheme.negative : AppTheme.positive;
+    final incomeSet       = income > 0;
+    final incomeRemaining = income - totalOutflow;
+    final incomeOver      = incomeSet && totalOutflow > income;
+    final incomeBadgeColor = incomeOver ? AppTheme.negative : AppTheme.positive;
 
     // ── Helper: profile section (top, dark solid bg) ──────────────────
     final profileRow = Row(
@@ -507,31 +520,63 @@ class _HeroBackground extends StatelessWidget {
                         ),
                       ),
 
-                      // ── Budget badge pill ─────────────────────────────
-                      if (totalBudget > 0)
+                      // ── Budget / Income badge pill ────────────────────
+                      if (incomeSet || totalBudget > 0)
                         Opacity(
                           opacity: budgetOpacity,
                           child: Align(
                             alignment: amountAlign,
                             child: Padding(
                               padding: const EdgeInsets.only(top: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: badgeColor.withAlpha(28),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                      color: badgeColor.withAlpha(90), width: 1),
-                                ),
-                                child: Text(
-                                  overBudget
-                                      ? 'Over budget by ${formatAmount(totalSpend - totalBudget, currency)}'
-                                      : '${formatAmount(totalBudget - totalSpend, currency)} left of ${formatAmount(totalBudget, currency)}',
-                                  style: TextStyle(
-                                      fontSize: 11, fontWeight: FontWeight.w700,
-                                      color: badgeColor),
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Income pill (primary when income is set)
+                                  if (incomeSet)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: incomeBadgeColor.withAlpha(28),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                            color: incomeBadgeColor.withAlpha(90),
+                                            width: 1),
+                                      ),
+                                      child: Text(
+                                        incomeOver
+                                            ? '${formatAmount(totalOutflow - income, currency)} over income'
+                                            : '${formatAmount(incomeRemaining, currency)} of ${formatAmount(income, currency)} left',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: incomeBadgeColor),
+                                      ),
+                                    ),
+                                  // Budget pill (secondary)
+                                  if (!incomeSet && totalBudget > 0) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: badgeColor.withAlpha(28),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                            color: badgeColor.withAlpha(90),
+                                            width: 1),
+                                      ),
+                                      child: Text(
+                                        overBudget
+                                            ? 'Over budget by ${formatAmount(totalSpend - totalBudget, currency)}'
+                                            : '${formatAmount(totalBudget - totalSpend, currency)} left of ${formatAmount(totalBudget, currency)}',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: badgeColor),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ),
