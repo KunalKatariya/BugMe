@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bugme_widget_background"
+    android:padding="16dp"
+    android:gravity="center_horizontal">
+
+    <!-- Account name -->
+    <TextView
+        android:id="@+id/widget_account_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Personal"
+        android:textSize="11sp"
+        android:textColor="#99AAAAAA"
+        android:textAllCaps="true"
+        android:letterSpacing="0.08"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Monthly spend label -->
+    <TextView
+        android:id="@+id/widget_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="This month"
+        android:textSize="10sp"
+        android:textColor="#66AAAAAA"
+        android:layout_marginBottom="2dp" />
+
+    <!-- Total spend amount -->
+    <TextView
+        android:id="@+id/widget_spend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="₹0"
+        android:textSize="28sp"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Mic shortcut button -->
+    <LinearLayout
+        android:id="@+id/widget_mic_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@drawable/bugme_widget_mic_bg"
+        android:padding="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎤"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  Add Entry"
+            android:textSize="12sp"
+            android:textColor="#FFFFFFFF"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</LinearLayout>
