@@ -319,7 +319,7 @@ class _HeroBackground extends StatelessWidget {
     required this.onNext,
     this.onAccountTap,
     this.userName = 'You',
-    this.userAvatar = '🙂',
+    this.userAvatar = '__logo__',
   });
 
   @override
@@ -346,8 +346,13 @@ class _HeroBackground extends StatelessWidget {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white.withAlpha(35), width: 1.5),
           ),
-          child: Center(child: Text(userAvatar,
-              style: const TextStyle(fontSize: 22))),
+          child: userAvatar == '__logo__'
+              ? ClipOval(
+                  child: Image.asset('assets/images/logo.png',
+                      fit: BoxFit.cover, width: 44, height: 44))
+              : Center(
+                  child: Text(userAvatar,
+                      style: const TextStyle(fontSize: 22))),
         ),
         const SizedBox(width: 12),
         Column(

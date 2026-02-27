@@ -14,8 +14,9 @@ class _PersonalScreenState extends ConsumerState<PersonalScreen> {
   late final TextEditingController _nameCtrl;
   late String _selectedAvatar;
 
-  // Common avatar emojis
+  // Avatar options — __logo__ sentinel first, then emojis
   static const _avatarOptions = [
+    '__logo__',
     '🙂', '😊', '😎', '🤩', '🥳', '😏', '🧐', '🤓',
     '🧑', '👦', '👧', '👨', '👩', '🧔', '👱', '🧕',
     '🐱', '🐶', '🦊', '🐼', '🦁', '🐨', '🐸', '🐯',
@@ -98,10 +99,13 @@ class _PersonalScreenState extends ConsumerState<PersonalScreen> {
                       border: Border.all(
                           color: cs.outline.withAlpha(80), width: 2),
                     ),
-                    child: Center(
-                      child: Text(_selectedAvatar,
-                          style: const TextStyle(fontSize: 44)),
-                    ),
+                    child: _selectedAvatar == '__logo__'
+                        ? ClipOval(
+                            child: Image.asset('assets/images/logo.png',
+                                fit: BoxFit.cover, width: 90, height: 90))
+                        : Center(
+                            child: Text(_selectedAvatar,
+                                style: const TextStyle(fontSize: 44))),
                   ),
                   const SizedBox(height: 10),
                   Text('Tap an emoji below to change',
@@ -153,10 +157,15 @@ class _PersonalScreenState extends ConsumerState<PersonalScreen> {
                             ? Border.all(color: cs.onSurface.withAlpha(60), width: 1.5)
                             : null,
                       ),
-                      child: Center(
-                        child: Text(emoji,
-                            style: const TextStyle(fontSize: 22)),
-                      ),
+                      child: emoji == '__logo__'
+                          ? Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: ClipOval(
+                                child: Image.asset('assets/images/logo.png',
+                                    fit: BoxFit.cover)))
+                          : Center(
+                              child: Text(emoji,
+                                  style: const TextStyle(fontSize: 22))),
                     ),
                   );
                 },

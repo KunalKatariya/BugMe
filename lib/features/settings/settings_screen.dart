@@ -82,10 +82,13 @@ class SettingsScreen extends ConsumerWidget {
                         color: cs.onSurface.withAlpha(10),
                         shape: BoxShape.circle,
                       ),
-                      child: Center(
-                        child: Text(profile.avatar,
-                            style: const TextStyle(fontSize: 18)),
-                      ),
+                        child: profile.avatar == '__logo__'
+                          ? ClipOval(
+                              child: Image.asset('assets/images/logo.png',
+                                  fit: BoxFit.cover, width: 36, height: 36))
+                          : Center(
+                              child: Text(profile.avatar,
+                                  style: const TextStyle(fontSize: 18))),
                     ),
                     title: Text('Personal', style: tt.bodyLarge),
                     subtitle: Text(profile.name, style: tt.bodySmall),

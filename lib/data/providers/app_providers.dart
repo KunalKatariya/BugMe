@@ -231,13 +231,13 @@ class UserProfileNotifier extends Notifier<UserProfile> {
   static const _keyAvatar = 'user_profile_avatar';
 
   @override
-  UserProfile build() => (name: 'You', avatar: '🙂');
+  UserProfile build() => (name: 'You', avatar: '__logo__');
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     state = (
       name:   prefs.getString(_keyName)   ?? 'You',
-      avatar: prefs.getString(_keyAvatar) ?? '🙂',
+      avatar: prefs.getString(_keyAvatar) ?? '__logo__',
     );
   }
 
