@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers/app_providers.dart';
 import 'features/goals/goals_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/transactions/transactions_screen.dart';
 import 'features/voice/voice_entry_screen.dart';
@@ -56,6 +58,12 @@ class _BugMeAppState extends ConsumerState<BugMeApp>
       await ref.read(databaseProvider).processSipContributions();
       // Auto-create transactions for overdue recurring payments
       await ref.read(databaseProvider).processRecurringPayments();
+      // Check onboarding state (must come before first frame)
+      final prefs = await SharedPreferences.getInstance();
+      final onboarded = prefs.getBool('onboarding_done') ?? false;
+      if (mounted) {
+        ref.read(onboardingDoneProvider.notifier).state = onboarded;
+      }
       // Refresh home-screen widget
       _updateWidget();
     });
@@ -103,16 +111,31 @@ class _BugMeAppState extends ConsumerState<BugMeApp>
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider);
+    final themeMode     = ref.watch(themeModeProvider);
+    final onboardingDone = ref.watch(onboardingDoneProvider);
     return MaterialApp(
       title: 'BugMe',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
-      home: const _AppShell(),
+      home: switch (onboardingDone) {
+        null  => const _SplashScreen(),   // loading
+        false => const OnboardingScreen(), // first launch
+        true  => const _AppShell(),        // returning user
+      },
     );
   }
+}
+
+// ── Splash (shown for ~50 ms while onboarding flag loads) ─────────────────
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(backgroundColor: Color(0xFF04040F));
 }
 
 class _AppShell extends ConsumerStatefulWidget {

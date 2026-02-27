@@ -256,3 +256,8 @@ class UserProfileNotifier extends Notifier<UserProfile> {
 
 final userProfileProvider =
     NotifierProvider<UserProfileNotifier, UserProfile>(UserProfileNotifier.new);
+
+// ── Onboarding ────────────────────────────────────────────────────────────
+
+/// null = loading, false = show onboarding, true = already done
+final onboardingDoneProvider = StateProvider<bool?>((ref) => null);
