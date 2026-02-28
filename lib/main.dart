@@ -282,7 +282,10 @@ class _FloatingNavBar extends StatelessWidget {
                   _NavItemCta(
                     index: 2,
                     current: currentIndex,
-                    onTap: () => onTap(2),
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      onTap(2);
+                    },
                     onLongPress: onMicLongPress,
                   ),
                   _NavItem(

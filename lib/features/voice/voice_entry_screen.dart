@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -19,7 +20,8 @@ class VoiceEntryScreen extends ConsumerStatefulWidget {
   ConsumerState<VoiceEntryScreen> createState() => _VoiceEntryScreenState();
 }
 
-class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
+class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen>
+    with WidgetsBindingObserver {
   final SpeechToText _speech = SpeechToText();
   bool _isListening      = false;
   bool _speechAvailable  = false;
@@ -31,29 +33,65 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initSpeech();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _speech.stop();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused && _isListening) {
+      // Stop listening when the app is backgrounded so the mic is released.
+      _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+    } else if (state == AppLifecycleState.resumed) {
+      // On iOS the speech recognizer is invalidated after backgrounding.
+      // Re-initialize so the next tap works without a restart.
+      _initSpeech();
+    }
   }
 
   Future<void> _initSpeech() async {
     _speechAvailable = await _speech.initialize(
       onStatus: (s) {
-        if (s == 'done' || s == 'notListening') {
+        // 'doneNoResult' is iOS-specific: fires when the recognizer stops
+        // with no speech detected (equivalent to Android's 'done').
+        if (s == 'done' || s == 'notListening' || s == 'doneNoResult') {
           if (mounted) setState(() => _isListening = false);
-          Future.delayed(const Duration(milliseconds: 350), () {
-            if (mounted && _transcribed.isNotEmpty && !_isParsing) _callGemini();
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted && _transcribed.isNotEmpty && !_isParsing &&
+                !_speech.isListening) {
+              _callGemini();
+            }
           });
         }
       },
       onError: (e) {
         const silentErrors = {
+          // Android
           'error_speech_timeout',
           'error_no_match',
           'error_speech_recognizer_busy',
+          // iOS — these fire when the recognizer is briefly unavailable,
+          // backgrounded, or interrupted; not meaningful to show to the user.
+          'error_audio',
+          'error_client',
+          'error_recognition_blocked',
+          'error_recognition_connection',
         };
         if (silentErrors.contains(e.errorMsg)) {
           if (mounted) setState(() => _isListening = false);
-          Future.delayed(const Duration(milliseconds: 350), () {
-            if (mounted && _transcribed.isNotEmpty && !_isParsing) _callGemini();
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted && _transcribed.isNotEmpty && !_isParsing &&
+                !_speech.isListening) {
+              _callGemini();
+            }
           });
           return;
         }
@@ -64,18 +102,31 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
   }
 
   Future<void> _startListening() async {
-    if (!_speechAvailable) return;
-    setState(() { _transcribed = ''; _parsedList = []; _error = null; });
+    if (!_speechAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Microphone access is required. Enable it in Settings.'),
+        duration: Duration(seconds: 3),
+      ));
+      return;
+    }
+    // If the engine is still active from a previous session, stop it first.
+    if (_speech.isListening) {
+      await _speech.stop();
+      await Future.delayed(const Duration(milliseconds: 150));
+    }
+    HapticFeedback.mediumImpact();
+    // Set isListening BEFORE listen() so onStatus:'done' can't race ahead and
+    // leave the UI stuck in a "listening" state after the engine has stopped.
+    setState(() { _isListening = true; _transcribed = ''; _parsedList = []; _error = null; });
     await _speech.listen(
       onResult: (r) => setState(() => _transcribed = r.recognizedWords),
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
-      localeId: 'en_US',
     );
-    setState(() => _isListening = true);
   }
 
   Future<void> _stopListening() async {
+    HapticFeedback.lightImpact();
     await _speech.stop();
     setState(() => _isListening = false);
     if (_transcribed.isNotEmpty && !_isParsing) _callGemini();
@@ -121,6 +172,7 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
     if (mounted) {
       final savedCount = _parsedList.length;
       setState(() { _parsedList = []; _transcribed = ''; });
+      SystemSound.play(SystemSoundType.click);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('$savedCount ${savedCount == 1 ? "entry" : "entries"} added'),
         backgroundColor: AppTheme.positive,
@@ -128,6 +180,19 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     }
+  }
+
+  Future<void> _addManually(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const _ManualEntrySheet(),
+    );
   }
 
   @override
@@ -174,6 +239,16 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
                     onTap: _isListening ? _stopListening : _startListening,
                   ).animate().fadeIn(duration: 300.ms),
 
+                  // ── Manual add link ────────────────────────────────────
+                  TextButton.icon(
+                    onPressed: () => _addManually(context),
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                    label: const Text('Add manually'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: cs.onSurfaceVariant,
+                    ),
+                  ),
+
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     _ErrorBanner(error: _error!, cs: cs, tt: tt)
@@ -215,6 +290,10 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
                         cs: cs,
                         tt: tt,
                         isDark: isDark,
+                        onAmountChange: (a) => setState(() =>
+                            _parsedList[i] = _parsedList[i].copyWith(amount: a)),
+                        onDescriptionChange: (d) => setState(() =>
+                            _parsedList[i] = _parsedList[i].copyWith(description: d)),
                         onCategoryChange: (c) => setState(() =>
                             _parsedList[i] = _parsedList[i].copyWith(category: c)),
                         onDateChange: (d) => setState(() =>
@@ -458,15 +537,27 @@ class _StatusChip extends StatelessWidget {
       );
 }
 
+// ── Shared date formatter ────────────────────────────────────────────────
+
+String _formatDate(DateTime d) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${d.day} ${months[d.month - 1]} ${d.year}';
+}
+
 // ── Confirm card ───────────────────────────────────────────────────────────
 
-class _ConfirmCard extends StatelessWidget {
+class _ConfirmCard extends StatefulWidget {
   final ParsedEntry parsed;
   final AppCurrency currency;
   final ColorScheme cs;
   final TextTheme tt;
   final bool isDark;
   final ValueChanged<String> onCategoryChange;
+  final ValueChanged<double> onAmountChange;
+  final ValueChanged<String> onDescriptionChange;
   final ValueChanged<DateTime> onDateChange;
   final VoidCallback? onSave;
   final VoidCallback onDiscard;
@@ -478,26 +569,92 @@ class _ConfirmCard extends StatelessWidget {
     required this.tt,
     required this.isDark,
     required this.onCategoryChange,
+    required this.onAmountChange,
+    required this.onDescriptionChange,
     required this.onDateChange,
     this.onSave,
     required this.onDiscard,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final color = AppTheme.categoryColors[categoryIndex(parsed.category)];
-    final emoji = categoryEmoji(parsed.category);
+  State<_ConfirmCard> createState() => _ConfirmCardState();
+}
 
-    return Container(
+class _ConfirmCardState extends State<_ConfirmCard> {
+  late TextEditingController _amountCtrl;
+  late TextEditingController _descCtrl;
+  bool _isExiting = false;
+
+  Future<void> _animateAndCall(VoidCallback cb) async {
+    setState(() => _isExiting = true);
+    await Future.delayed(const Duration(milliseconds: 240));
+    if (mounted) cb();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final a = widget.parsed.amount;
+    _amountCtrl = TextEditingController(
+      text: a % 1 == 0 ? a.toStringAsFixed(0) : a.toStringAsFixed(2),
+    );
+    _descCtrl = TextEditingController(text: widget.parsed.description);
+  }
+
+  @override
+  void didUpdateWidget(_ConfirmCard old) {
+    super.didUpdateWidget(old);
+    // Only sync controller if parent pushed a new amount (e.g. re-parse)
+    // and the field isn't currently focused.
+    if (old.parsed.amount != widget.parsed.amount &&
+        !_amountCtrl.selection.isValid) {
+      final a = widget.parsed.amount;
+      _amountCtrl.text =
+          a % 1 == 0 ? a.toStringAsFixed(0) : a.toStringAsFixed(2);
+    }
+    if (old.parsed.description != widget.parsed.description &&
+        !_descCtrl.selection.isValid) {
+      _descCtrl.text = widget.parsed.description;
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppTheme.categoryColors[categoryIndex(widget.parsed.category)];
+    final emoji = categoryEmoji(widget.parsed.category);
+
+    return AnimatedScale(
+      scale: _isExiting ? 0.92 : 1.0,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeInCubic,
+      child: AnimatedOpacity(
+        opacity: _isExiting ? 0.0 : 1.0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInCubic,
+        child: Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF141414) : Colors.white,
+        color: widget.isDark ? const Color(0xFF141414) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: isDark ? const Color(0xFF1E1E3C) : const Color(0xFFE5E4F0),
+            color: widget.isDark
+                ? const Color(0xFF1E1E3C)
+                : const Color(0xFFE5E4F0),
             width: 1),
-        boxShadow: isDark
+        boxShadow: widget.isDark
             ? null
-            : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 16, offset: const Offset(0, 4))],
+            : [
+                BoxShadow(
+                    color: Colors.black.withAlpha(6),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4))
+              ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -509,14 +666,16 @@ class _ConfirmCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.positive.withAlpha(18),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppTheme.positive.withAlpha(70)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.check_rounded, color: AppTheme.positive, size: 12),
+                    Icon(Icons.check_rounded,
+                        color: AppTheme.positive, size: 12),
                     const SizedBox(width: 4),
                     Text('PARSED',
                         style: TextStyle(
@@ -527,15 +686,16 @@ class _ConfirmCard extends StatelessWidget {
                   ]),
                 ),
                 GestureDetector(
-                  onTap: onDiscard,
+                  onTap: () => _animateAndCall(widget.onDiscard),
                   child: Container(
-                    width: 30, height: 30,
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
-                      color: cs.onSurface.withAlpha(8),
+                      color: widget.cs.onSurface.withAlpha(8),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.close_rounded,
-                        size: 16, color: cs.onSurfaceVariant),
+                        size: 16, color: widget.cs.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -552,41 +712,88 @@ class _ConfirmCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: color.withAlpha(50), width: 1),
                 ),
-                child: Center(child: Text(emoji,
-                    style: const TextStyle(fontSize: 24))),
+                child: Center(
+                    child: Text(emoji,
+                        style: const TextStyle(fontSize: 24))),
               ),
               const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  formatAmount(parsed.amount, currency),
-                  style: tt.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  parsed.description,
-                  style: tt.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w500),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ])),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  // Editable amount field
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.currency.symbol,
+                        style: widget.tt.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                            color: widget.cs.onSurface.withAlpha(120)),
+                      ),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: TextField(
+                          controller: _amountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.]'))
+                          ],
+                          style: widget.tt.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onChanged: (v) {
+                            final d = double.tryParse(v);
+                            if (d != null && d > 0) {
+                              widget.onAmountChange(d);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _descCtrl,
+                    style: widget.tt.bodySmall?.copyWith(
+                        color: widget.cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w500),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hintText: 'Description',
+                    ),
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLines: 2,
+                    onChanged: widget.onDescriptionChange,
+                  ),
+                ]),
+              ),
             ]),
             const SizedBox(height: 18),
 
             // Category dropdown
             DropdownButtonFormField<String>(
-              initialValue: categories.contains(parsed.category)
-                  ? parsed.category
+              initialValue: categories.contains(widget.parsed.category)
+                  ? widget.parsed.category
                   : 'Other',
               decoration: const InputDecoration(labelText: 'Category'),
               items: categories
                   .map((c) => DropdownMenuItem(
                       value: c, child: Text('${categoryEmoji(c)}  $c')))
                   .toList(),
-              onChanged: (v) { if (v != null) onCategoryChange(v); },
+              onChanged: (v) {
+                if (v != null) widget.onCategoryChange(v);
+              },
             ),
             const SizedBox(height: 10),
 
@@ -595,30 +802,33 @@ class _ConfirmCard extends StatelessWidget {
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: parsed.date,
+                  initialDate: widget.parsed.date,
                   firstDate: DateTime(2020),
                   lastDate: DateTime.now(),
                 );
-                if (picked != null) onDateChange(picked);
+                if (picked != null) widget.onDateChange(
+                    DateTime(picked.year, picked.month, picked.day, 12));
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: cs.onSurface.withAlpha(7),
+                  color: widget.cs.onSurface.withAlpha(7),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: cs.outline, width: 1),
+                  border: Border.all(color: widget.cs.outline, width: 1),
                 ),
                 child: Row(children: [
                   Icon(Icons.calendar_month_rounded,
-                      size: 14, color: cs.onSurfaceVariant),
+                      size: 14, color: widget.cs.onSurfaceVariant),
                   const SizedBox(width: 8),
                   Text(
-                    _formatDate(parsed.date),
-                    style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+                    _formatDate(widget.parsed.date),
+                    style: widget.tt.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w500),
                   ),
                   const Spacer(),
-                  Icon(Icons.edit_rounded, size: 12, color: cs.onSurfaceVariant),
+                  Icon(Icons.edit_rounded,
+                      size: 12, color: widget.cs.onSurfaceVariant),
                 ]),
               ),
             ),
@@ -628,14 +838,14 @@ class _ConfirmCard extends StatelessWidget {
             Row(children: [
               Expanded(
                 child: OutlinedButton(
-                    onPressed: onDiscard,
+                    onPressed: () => _animateAndCall(widget.onDiscard),
                     child: const Text('Discard')),
               ),
-              if (onSave != null) ...[
+              if (widget.onSave != null) ...[
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                      onPressed: onSave,
+                      onPressed: () => _animateAndCall(widget.onSave!),
                       child: const Text('Save Entry')),
                 ),
               ],
@@ -643,15 +853,165 @@ class _ConfirmCard extends StatelessWidget {
           ],
         ),
       ),
+        ),
+      ),
     );
   }
+}
 
-  static String _formatDate(DateTime d) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${d.day} ${months[d.month - 1]} ${d.year}';
+// ── Manual entry bottom-sheet ──────────────────────────────────────────────
+
+class _ManualEntrySheet extends ConsumerStatefulWidget {
+  const _ManualEntrySheet();
+
+  @override
+  ConsumerState<_ManualEntrySheet> createState() => _ManualEntrySheetState();
+}
+
+class _ManualEntrySheetState extends ConsumerState<_ManualEntrySheet> {
+  final _amountCtrl = TextEditingController();
+  final _descCtrl   = TextEditingController();
+  String   _category = categories.first;
+  DateTime _date     = DateTime.now();
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount <= 0) return;
+    // Capture navigation/messenger before any async gap so they remain valid
+    // after the widget is popped off the tree.
+    final messenger = ScaffoldMessenger.of(context);
+    final nav       = Navigator.of(context);
+    const uuid      = Uuid();
+    final accountId = ref.read(selectedAccountProvider);
+    await ref.read(databaseProvider).insertTransaction(
+      TransactionsCompanion.insert(
+        uuid: uuid.v4(),
+        amount: amount,
+        category: _category,
+        description: _descCtrl.text.trim().isEmpty
+            ? _category
+            : _descCtrl.text.trim(),
+        date: _date,
+        accountId: Value(accountId),
+      ),
+    );
+    nav.pop();
+    SystemSound.play(SystemSoundType.click);
+    messenger.showSnackBar(SnackBar(
+      content: const Text('Entry added'),
+      backgroundColor: AppTheme.positive,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs       = Theme.of(context).colorScheme;
+    final tt       = Theme.of(context).textTheme;
+    final currency = ref.watch(currencyProvider);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: cs.onSurface.withAlpha(30),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Text('Add Entry',
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _amountCtrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+            ],
+            decoration: InputDecoration(
+              labelText: 'Amount',
+              prefixText: '${currency.symbol} ',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descCtrl,
+            decoration:
+                const InputDecoration(labelText: 'Description (optional)'),
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _category,
+            decoration: const InputDecoration(labelText: 'Category'),
+            items: categories
+                .map((c) => DropdownMenuItem(
+                    value: c, child: Text('${categoryEmoji(c)}  $c')))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _category = v);
+            },
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) setState(() =>
+                  _date = DateTime(picked.year, picked.month, picked.day, 12));
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: cs.onSurface.withAlpha(7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.outline, width: 1),
+              ),
+              child: Row(children: [
+                Icon(Icons.calendar_month_rounded,
+                    size: 14, color: cs.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(_formatDate(_date),
+                    style:
+                        tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                const Spacer(),
+                Icon(Icons.edit_rounded,
+                    size: 12, color: cs.onSurfaceVariant),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _save,
+              child: const Text('Save Entry'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

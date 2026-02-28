@@ -274,7 +274,7 @@ class AppDatabase extends _$AppDatabase {
     for (final goal in list) {
       if (goal.sipAmount == null || goal.sipAmount! <= 0) continue;
       if (goal.savedAmount >= goal.targetAmount) continue;
-      final sipDate = DateTime(now.year, now.month, goal.sipDay.clamp(1, 28));
+      final sipDate = DateTime(now.year, now.month, goal.sipDay.clamp(1, 28), 12);
       if (now.isBefore(sipDate)) continue;
       if (goal.sipLastContributed != null) {
         final last = goal.sipLastContributed!;
@@ -295,7 +295,7 @@ class AppDatabase extends _$AppDatabase {
         amount: contribution,
         category: 'Investments',
         description: 'SIP – ${goal.name}',
-        date: now,
+        date: sipDate,
         accountId: Value(goal.accountId),
         txnType: const Value('investment'),
       ));
@@ -352,7 +352,7 @@ class AppDatabase extends _$AppDatabase {
           break;
         case 'yearly':
           next = DateTime(r.nextDueDate.year + 1, r.nextDueDate.month,
-              r.nextDueDate.day);
+              r.nextDueDate.day, 12);
           break;
         case 'monthly':
         default:
@@ -360,7 +360,7 @@ class AppDatabase extends _$AppDatabase {
           var y = r.nextDueDate.year;
           var m = r.nextDueDate.month + 1;
           if (m > 12) { m = 1; y++; }
-          next = DateTime(y, m, dom.clamp(1, 28));
+          next = DateTime(y, m, dom.clamp(1, 28), 12);
       }
       await (update(recurringPayments)
             ..where((rec) => rec.id.equals(r.id)))

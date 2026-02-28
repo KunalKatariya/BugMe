@@ -1,3 +1,5 @@
+import 'dart:math' show max;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -21,6 +23,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   late final ScrollController _scroll;
   double _collapseRatio = 0.0; // 0 = fully expanded, 1 = fully collapsed
+  int    _slideDir      = 1;   // 1 = forward (next), -1 = backward (prev)
 
   @override
   void initState() {
@@ -74,6 +77,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final monthLabel  = DateFormat('MMMM yyyy').format(DateTime.parse('$month-01'));
     final totalSpend  = spend.values.fold(0.0, (a, b) => a + b);
     final totalOutflow = ref.watch(totalMonthlyOutflowProvider);
+
+    // ── Committed amounts (recurring configs + active SIPs) ───────────────
+    // Mirror budget_screen committed calculation so the hero reflects the
+    // full planned outflow even when auto-payments haven't been processed yet.
+    final recurrings  = ref.watch(recurringPaymentsProvider).valueOrNull ?? [];
+    final goals       = ref.watch(goalsProvider).valueOrNull ?? [];
+    double monthlyEquiv(RecurringPayment r) {
+      switch (r.frequency) {
+        case 'daily':  return r.amount * 30;
+        case 'weekly': return r.amount * 4.33;
+        case 'yearly': return r.amount / 12;
+        default:       return r.amount;
+      }
+    }
+    final totalRecurring = recurrings.fold<double>(0, (s, r) => s + monthlyEquiv(r));
+    final totalSIPs      = goals
+        .where((g) => (g.sipAmount ?? 0) > 0 && g.savedAmount < g.targetAmount)
+        .fold<double>(0, (s, g) => s + g.sipAmount!);
+    final totalCommitted = totalRecurring + totalSIPs;
+    final now          = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    // Only boost with committed for the current month — past months have
+    // fully-processed transactions so totalOutflow is already accurate.
+    final displayedOutflow = month == currentMonth
+        ? max(totalOutflow, totalSpend + totalCommitted)
+        : totalOutflow;
     final totalBudget = allocAsync.valueOrNull
         ?.fold(0.0, (s, a) => s + a.allocatedAmount) ?? 0.0;
     final incomeMap   = ref.watch(monthlyIncomeProvider);
@@ -81,8 +110,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final dailySpend  = dailyAsync.valueOrNull ?? {};
     final profile     = ref.watch(userProfileProvider);
     final expandRatio = 1.0 - _collapseRatio;
-    final now          = DateTime.now();
-    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
     final isMonthEnded = month.compareTo(currentMonth) < 0;
 
     return Scaffold(
@@ -125,7 +152,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               background: _HeroBackground(
                 expandRatio: expandRatio,
                 totalSpend: totalSpend,
-                totalOutflow: totalOutflow,
+                totalOutflow: displayedOutflow,
                 totalBudget: totalBudget,
                 income: income,
                 currency: currency,
@@ -141,6 +168,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     : null,
                 userName: profile.name,
                 userAvatar: profile.avatar,
+                slideDir: _slideDir,
               ),
             ),
           ),
@@ -179,48 +207,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
 
                   // ── Month-end report ──────────────────────────────────
-                  if (isMonthEnded && (income > 0 || totalOutflow > 0))
+                  if (isMonthEnded && (income > 0 || displayedOutflow > 0))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: _MonthEndReport(
                         income: income,
-                        totalSpent: totalOutflow,
+                        totalSpent: displayedOutflow,
                         spend: spend,
                         allocs: allocAsync.valueOrNull ?? [],
                         currency: currency,
                         monthLabel: monthLabel,
+                        month: month,
                         cs: cs,
                         tt: tt,
                         isDark: isDark,
                       ).animate().fadeIn(duration: 400.ms),
                     ),
 
-                  // ── Recent grouped by date ────────────────────────────
-                  txnsAsync.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2)),
-                    ),
-                    error: (_, _) => const SizedBox.shrink(),
-                    data: (txns) {
-                      if (txns.isEmpty) {
-                        return _EmptyHint(
-                          icon: '💸',
-                          message: 'No spending this month.\nTap the mic to add your first entry.',
+                  // ── Recent grouped by date (current month only) ───────
+                  if (!isMonthEnded)
+                    txnsAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(40),
+                        child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
+                      error: (_, _) => const SizedBox.shrink(),
+                      data: (txns) {
+                        if (txns.isEmpty) {
+                          return _EmptyHint(
+                            icon: '💸',
+                            message: 'No spending this month.\nTap the mic to add your first entry.',
+                            cs: cs,
+                            tt: tt,
+                          );
+                        }
+                        return _GroupedTransactions(
+                          txns: txns,
+                          currency: currency,
                           cs: cs,
                           tt: tt,
+                          isDark: isDark,
                         );
-                      }
-                      return _GroupedTransactions(
-                        txns: txns,
-                        currency: currency,
-                        cs: cs,
-                        tt: tt,
-                        isDark: isDark,
-                      );
-                    },
-                  ),
+                      },
+                    ),
 
                   const SizedBox(height: 120),
                 ],
@@ -233,6 +263,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _shiftMonth(WidgetRef ref, String current, int delta) {
+    _slideDir = delta; // set before Riverpod rebuild so animation direction is correct
     final parts = current.split('-');
     var year = int.parse(parts[0]);
     var mon  = int.parse(parts[1]) + delta;
@@ -327,6 +358,7 @@ class _HeroBackground extends StatelessWidget {
   final VoidCallback? onAccountTap;
   final String userName;
   final String userAvatar;
+  final int slideDir;
 
   const _HeroBackground({
     required this.expandRatio,
@@ -345,6 +377,7 @@ class _HeroBackground extends StatelessWidget {
     this.onAccountTap,
     this.userName = 'You',
     this.userAvatar = '__logo__',
+    this.slideDir = 1,
   });
 
   @override
@@ -533,109 +566,125 @@ class _HeroBackground extends StatelessWidget {
 
                       const Spacer(),
 
-                      // ── "Total spent" label ──────────────────────────
-                      Opacity(
-                        opacity: labelOpacity,
-                        child: Align(
-                          alignment: amountAlign,
-                          child: const Text(
-                            'TOTAL SPENT',
-                            style: TextStyle(
-                                color: Colors.white38, fontSize: 11,
-                                fontWeight: FontWeight.w600, letterSpacing: 1.5),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-
-                      // ── Big amount ────────────────────────────────────
-                      Align(
-                        alignment: amountAlign,
-                        child: Text(
-                          formatAmount(totalOutflow, currency),
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: amountSize,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1.5,
-                          ),
-                        ),
-                      ),
-
-                      // ── Budget / Income badge pill ────────────────────
-                      if (incomeSet || totalBudget > 0)
-                        Opacity(
-                          opacity: budgetOpacity,
-                          child: Align(
-                            alignment: amountAlign,
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Income pill (primary when income is set)
-                                  if (incomeSet)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: incomeBadgeColor.withAlpha(28),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                            color: incomeBadgeColor.withAlpha(90),
-                                            width: 1),
-                                      ),
-                                      child: Text(
-                                        incomeOver
-                                            ? '${formatAmount(totalOutflow - income, currency)} over income'
-                                            : '${formatAmount(incomeRemaining, currency)} of ${formatAmount(income, currency)} left',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: incomeBadgeColor),
-                                      ),
-                                    ),
-                                  // Budget pill (secondary)
-                                  if (!incomeSet && totalBudget > 0) ...[
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: badgeColor.withAlpha(28),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                            color: badgeColor.withAlpha(90),
-                                            width: 1),
-                                      ),
-                                      child: Text(
-                                        overBudget
-                                            ? 'Over budget by ${formatAmount(totalSpend - totalBudget, currency)}'
-                                            : '${formatAmount(totalBudget - totalSpend, currency)} left of ${formatAmount(totalBudget, currency)}',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: badgeColor),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                      // ── Month-keyed block (slides in/out on nav) ──────
+                      Column(
+                        key: ValueKey(month),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // ── "Total spent" label ─────────────────────────
+                          Opacity(
+                            opacity: labelOpacity,
+                            child: Align(
+                              alignment: amountAlign,
+                              child: const Text(
+                                'TOTAL SPENT',
+                                style: TextStyle(
+                                    color: Colors.white38, fontSize: 11,
+                                    fontWeight: FontWeight.w600, letterSpacing: 1.5),
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
 
-                      const SizedBox(height: 16),
+                          // ── Big amount (animated counter) ────────────────
+                          Align(
+                            alignment: amountAlign,
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: totalOutflow),
+                              duration: const Duration(milliseconds: 700),
+                              curve: Curves.easeOutCubic,
+                              builder: (_, val, __) => Text(
+                                formatAmount(val, currency),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: amountSize,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.5,
+                                ),
+                              ),
+                            ),
+                          ),
 
-                      // ── Day-wise spending chart ────────────────────────
-                      Opacity(
-                        opacity: chartOpacity,
-                        child: SizedBox(
-                          height: 130 * expandRatio,
-                          child: _DailySpendChart(
-                              dailySpend: dailySpend, month: month),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                          // ── Budget / Income badge pill ───────────────────
+                          if (incomeSet || totalBudget > 0)
+                            Opacity(
+                              opacity: budgetOpacity,
+                              child: Align(
+                                alignment: amountAlign,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (incomeSet)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: incomeBadgeColor.withAlpha(28),
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                                color: incomeBadgeColor.withAlpha(90),
+                                                width: 1),
+                                          ),
+                                          child: Text(
+                                            incomeOver
+                                                ? '${formatAmount(totalOutflow - income, currency)} over income'
+                                                : '${formatAmount(incomeRemaining, currency)} of ${formatAmount(income, currency)} left',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: incomeBadgeColor),
+                                          ),
+                                        ),
+                                      if (!incomeSet && totalBudget > 0) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: badgeColor.withAlpha(28),
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                                color: badgeColor.withAlpha(90),
+                                                width: 1),
+                                          ),
+                                          child: Text(
+                                            overBudget
+                                                ? 'Over budget by ${formatAmount(totalSpend - totalBudget, currency)}'
+                                                : '${formatAmount(totalBudget - totalSpend, currency)} left of ${formatAmount(totalBudget, currency)}',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: badgeColor),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(height: 16),
+
+                          // ── Day-wise spending chart ──────────────────────
+                          Opacity(
+                            opacity: chartOpacity,
+                            child: SizedBox(
+                              height: 130 * expandRatio,
+                              child: _DailySpendChart(
+                                  dailySpend: dailySpend, month: month),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ).animate()
+                          .fadeIn(duration: 280.ms, curve: Curves.easeOut)
+                          .slideX(
+                              begin: slideDir * 0.08,
+                              end: 0,
+                              duration: 350.ms,
+                              curve: Curves.easeOutCubic),
                     ],
                   ),
                 ),
@@ -756,7 +805,7 @@ class _DailySpendChart extends StatelessWidget {
     final effectiveMax = maxSpend > 0 ? maxSpend * 1.3 : 500.0;
     final yInterval   = (effectiveMax / 4).ceilToDouble();
 
-    final barAccent = isDark ? const Color(0xFFDDDDDD) : const Color(0xFF1A1A1A);
+    const barAccent = Color(0xFFDDDDDD);
     const barDim   = Color(0x20FFFFFF);
     const todayCol = Color(0xFFFFD580);
 
@@ -1002,11 +1051,16 @@ class _BudgetSummaryCard extends StatelessWidget {
           const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: cs.onSurface.withAlpha(12),
-              valueColor: AlwaysStoppedAnimation(barColor),
-              minHeight: 10,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: progress),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (_, val, __) => LinearProgressIndicator(
+                value: val,
+                backgroundColor: cs.onSurface.withAlpha(12),
+                valueColor: AlwaysStoppedAnimation(barColor),
+                minHeight: 10,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -1207,6 +1261,7 @@ class _MonthEndReport extends StatelessWidget {
   final List<BudgetAllocation> allocs;
   final AppCurrency currency;
   final String monthLabel;
+  final String month;
   final ColorScheme cs;
   final TextTheme tt;
   final bool isDark;
@@ -1218,6 +1273,7 @@ class _MonthEndReport extends StatelessWidget {
     required this.allocs,
     required this.currency,
     required this.monthLabel,
+    required this.month,
     required this.cs,
     required this.tt,
     required this.isDark,
@@ -1232,36 +1288,68 @@ class _MonthEndReport extends StatelessWidget {
         ? ((saved.abs() / income) * 100).clamp(0, 100)
         : 0.0;
 
-    // Find most overspent category
+    // Avg daily spend
+    final parts       = month.split('-');
+    final daysInMonth = DateUtils.getDaysInMonth(
+        int.parse(parts[0]), int.parse(parts[1]));
+    final avgDaily = totalSpent > 0 ? totalSpent / daysInMonth : 0.0;
+
+    // Top categories by spend (up to 3)
+    final topCats  = spend.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topSlice = topCats.take(3).toList();
+
+    // Budget performance
+    int overCount = 0, trackCount = 0;
+    for (final a in allocs) {
+      if ((spend[a.category] ?? 0) > a.allocatedAmount) overCount++;
+      else trackCount++;
+    }
+
+    // Find most overspent / most under-budget category
     String? worstCat;
     double worstExcess = 0;
-    for (final a in allocs) {
-      final s = spend[a.category] ?? 0;
-      final excess = s - a.allocatedAmount;
-      if (excess > worstExcess) { worstExcess = excess; worstCat = a.category; }
-    }
-    // Find most under-budget category (most savings)
     String? bestCat;
     double bestSaving = 0;
     for (final a in allocs) {
       final s = spend[a.category] ?? 0;
-      final saving = a.allocatedAmount - s;
-      if (saving > bestSaving && s > 0) { bestSaving = saving; bestCat = a.category; }
+      final excess  = s - a.allocatedAmount;
+      final saving  = a.allocatedAmount - s;
+      if (excess  > worstExcess) { worstExcess = excess;  worstCat = a.category; }
+      if (saving  > bestSaving && s > 0) { bestSaving = saving; bestCat = a.category; }
     }
-    // Tip for next month
+
+    // Specific, actionable tip
     String tip;
     if (!hasIncome) {
-      tip = 'Set your monthly income in the Budget tab to unlock full insights next month.';
+      final dayPart = avgDaily > 0
+          ? 'You averaged ${formatAmount(avgDaily, currency)}/day. '
+          : '';
+      tip = '${dayPart}Set your monthly income in the Budget tab to unlock full savings insights.';
     } else if (isOver) {
-      tip = worstCat != null
-          ? 'Your biggest overspend was $worstCat. Consider capping it at ${formatAmount((spend[worstCat]! * 0.85).ceilToDouble(), currency)} next month.'
-          : 'You were over budget this month. Review your categories in the Budget tab.';
+      if (worstCat != null) {
+        final target = (spend[worstCat]! * 0.8).ceilToDouble();
+        tip = '$worstCat pushed you over by ${formatAmount(worstExcess, currency)}. '
+              'Capping it at ${formatAmount(target, currency)} next month would bring you back on track.';
+      } else {
+        final cutPerDay = (saved.abs() / daysInMonth).ceilToDouble();
+        tip = 'Overspent by ${formatAmount(saved.abs(), currency)} — about '
+              '${formatAmount(cutPerDay, currency)}/day over limit. Trimming small daily expenses compounds fast.';
+      }
     } else if (savedPct >= 20) {
-      tip = bestCat != null
-          ? 'Great discipline on $bestCat! Consider moving some of those savings toward a goal.'
-          : 'Excellent month! Put those savings to work — add a goal in the Goals & Planning screen.';
+      if (bestCat != null) {
+        tip = 'Saving ${savedPct.toStringAsFixed(0)}% is excellent! '
+              '$bestCat had ${formatAmount(bestSaving, currency)} left over — consider directing that toward a goal.';
+      } else {
+        tip = 'Saving ${savedPct.toStringAsFixed(0)}% puts you above the 20% target. '
+              'Averaged ${formatAmount(avgDaily, currency)}/day — keep that discipline going!';
+      }
     } else {
-      tip = 'You saved ${savedPct.toStringAsFixed(0)}%. Aim for 20%+ next month by trimming ${worstCat ?? 'your biggest category'}.';
+      final gap        = (income * 0.2) - saved;
+      final trimPerDay = (gap / daysInMonth).ceilToDouble();
+      tip = '${savedPct.toStringAsFixed(0)}% saved (target: 20%). '
+            'Trimming just ${formatAmount(trimPerDay, currency)}/day more would hit the goal'
+            '${worstCat != null ? ' — start with $worstCat.' : '.'}';
     }
 
     final accentColor = isOver ? AppTheme.negative : AppTheme.positive;
@@ -1270,7 +1358,7 @@ class _MonthEndReport extends StatelessWidget {
         ? 'Over budget by ${formatAmount(saved.abs(), currency)}'
         : hasIncome
             ? 'Saved ${formatAmount(saved, currency)} (${savedPct.toStringAsFixed(0)}%)'
-            : 'You spent ${formatAmount(totalSpent, currency)} this month';
+            : 'Spent ${formatAmount(totalSpent, currency)} this month';
 
     return Container(
       decoration: BoxDecoration(
@@ -1281,7 +1369,7 @@ class _MonthEndReport extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // ── Header ─────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             decoration: BoxDecoration(
@@ -1291,8 +1379,7 @@ class _MonthEndReport extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(headerEmoji,
-                    style: const TextStyle(fontSize: 22)),
+                Text(headerEmoji, style: const TextStyle(fontSize: 22)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -1315,7 +1402,8 @@ class _MonthEndReport extends StatelessWidget {
               ],
             ),
           ),
-          // Stats row
+
+          // ── Stats pills ────────────────────────────────────────────────
           if (hasIncome)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -1346,26 +1434,161 @@ class _MonthEndReport extends StatelessWidget {
                 ],
               ),
             ),
-          // Insight rows
-          if (worstCat != null)
-            _InsightRow(
-              icon: '🔴',
-              label: 'Most overspent',
-              value: '$worstCat  +${formatAmount(worstExcess, currency)}',
-              tt: tt,
-              cs: cs,
+
+          // ── Spending breakdown ──────────────────────────────────────────
+          if (topSlice.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SPENDING BREAKDOWN',
+                    style: tt.labelSmall?.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 1.0,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurfaceVariant.withAlpha(160)),
+                  ),
+                  if (avgDaily > 0)
+                    Text(
+                      'avg ${formatAmount(avgDaily, currency)}/day',
+                      style: tt.labelSmall?.copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant.withAlpha(160)),
+                    ),
+                ],
+              ),
             ),
-          if (bestCat != null)
-            _InsightRow(
-              icon: '🟢',
-              label: 'Most under budget',
-              value: '$bestCat  -${formatAmount(bestSaving, currency)}',
-              tt: tt,
-              cs: cs,
+            ...topSlice.map((e) {
+              final pct   = totalSpent > 0 ? (e.value / totalSpent).clamp(0.0, 1.0) : 0.0;
+              double? allocAmt;
+              for (final a in allocs) {
+                if (a.category == e.key) { allocAmt = a.allocatedAmount; break; }
+              }
+              final isOverCat = allocAmt != null && e.value > allocAmt;
+              final barColor  = isOverCat ? AppTheme.negative : accentColor;
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: Row(
+                  children: [
+                    Text(categoryEmoji(e.key),
+                        style: const TextStyle(fontSize: 14)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Expanded(
+                              child: Text(
+                                e.key,
+                                style: tt.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              formatAmount(e.value, currency),
+                              style: tt.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isOverCat
+                                      ? AppTheme.negative
+                                      : cs.onSurface),
+                            ),
+                            const SizedBox(width: 6),
+                            SizedBox(
+                              width: 30,
+                              child: Text(
+                                '${(pct * 100).round()}%',
+                                textAlign: TextAlign.right,
+                                style: tt.labelSmall?.copyWith(
+                                    fontSize: 10,
+                                    color: cs.onSurfaceVariant
+                                        .withAlpha(160)),
+                              ),
+                            ),
+                          ]),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: pct,
+                              backgroundColor: cs.onSurface.withAlpha(10),
+                              valueColor: AlwaysStoppedAnimation(
+                                  barColor.withAlpha(180)),
+                              minHeight: 3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+
+          // ── Budget performance chips ────────────────────────────────────
+          if (allocs.isNotEmpty && (overCount > 0 || trackCount > 0))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Row(
+                children: [
+                  if (trackCount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.positive.withAlpha(14),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: AppTheme.positive.withAlpha(50), width: 1),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.check_rounded,
+                            size: 10, color: AppTheme.positive),
+                        const SizedBox(width: 4),
+                        Text('$trackCount on track',
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.positive)),
+                      ]),
+                    ),
+                  if (overCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.negative.withAlpha(14),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: AppTheme.negative.withAlpha(50), width: 1),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.warning_amber_rounded,
+                            size: 10, color: AppTheme.negative),
+                        const SizedBox(width: 4),
+                        Text('$overCount over budget',
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.negative)),
+                      ]),
+                    ),
+                ],
+              ),
             ),
-          // Tip
+
+          // ── Tip ────────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            padding: EdgeInsets.fromLTRB(
+                16, topSlice.isEmpty && !hasIncome ? 12 : 4, 16, 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1374,8 +1597,7 @@ class _MonthEndReport extends StatelessWidget {
                 Expanded(
                   child: Text(tip,
                       style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.5)),
+                          color: cs.onSurfaceVariant, height: 1.5)),
                 ),
               ],
             ),

@@ -855,25 +855,26 @@ class GoalsScreen extends ConsumerWidget {
                     if (label.isEmpty || amount <= 0 || cat == null) return;
                     final now = DateTime.now();
                     final nextDue = frequency == 'monthly'
-                        ? DateTime(now.year, now.month, dayOfMonth.clamp(1, 28))
+                        ? DateTime(now.year, now.month, dayOfMonth.clamp(1, 28), 12)
                         : now;
-                    await ref
-                        .read(databaseProvider)
-                        .insertRecurringPayment(
-                          RecurringPaymentsCompanion.insert(
-                            label: label,
-                            category: cat,
-                            amount: amount,
-                            frequency: frequency,
-                            dayOfMonth: Value(
-                                frequency == 'monthly' ? dayOfMonth : null),
-                            nextDueDate: nextDue.isAfter(now)
-                                ? nextDue
-                                : DateTime(now.year, now.month + 1, dayOfMonth.clamp(1, 28)),
-                            accountId: Value(
-                                ref.read(selectedAccountProvider)),
-                          ),
-                        );
+                    final db = ref.read(databaseProvider);
+                    await db.insertRecurringPayment(
+                      RecurringPaymentsCompanion.insert(
+                        label: label,
+                        category: cat,
+                        amount: amount,
+                        frequency: frequency,
+                        dayOfMonth: Value(
+                            frequency == 'monthly' ? dayOfMonth : null),
+                        // Always use current-month date so processRecurringPayments
+                        // can immediately create the transaction if the day has passed.
+                        nextDueDate: nextDue,
+                        accountId: Value(
+                            ref.read(selectedAccountProvider)),
+                      ),
+                    );
+                    // Create transaction right away if the due date has already passed.
+                    await db.processRecurringPayments();
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                   child: const Text('Add Recurring'),
@@ -985,10 +986,10 @@ class GoalsScreen extends ConsumerWidget {
                     final nextDue = frequency == 'monthly'
                         ? (() {
                             final d = dayOfMonth.clamp(1, 28);
-                            final candidate = DateTime(now.year, now.month, d);
+                            final candidate = DateTime(now.year, now.month, d, 12);
                             return candidate.isAfter(now)
                                 ? candidate
-                                : DateTime(now.year, now.month + 1, d);
+                                : DateTime(now.year, now.month + 1, d, 12);
                           })()
                         : rec.nextDueDate;
                     await ref.read(databaseProvider).updateRecurringPayment(
