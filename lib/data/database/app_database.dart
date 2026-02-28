@@ -293,7 +293,7 @@ class AppDatabase extends _$AppDatabase {
       await insertTransaction(TransactionsCompanion.insert(
         uuid: uuid.v4(),
         amount: contribution,
-        category: 'Investment',
+        category: 'Investments',
         description: 'SIP – ${goal.name}',
         date: now,
         accountId: Value(goal.accountId),

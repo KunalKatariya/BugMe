@@ -244,7 +244,13 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                 ).animate().fadeIn(delay: 140.ms, duration: 350.ms),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 130)),
+              SliverToBoxAdapter(
+                child: Builder(
+                  builder: (ctx) => SizedBox(
+                    height: 160 + MediaQuery.of(ctx).padding.bottom,
+                  ),
+                ),
+              ),
             ],
           ),
 

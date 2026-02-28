@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -165,6 +167,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
 
     return Scaffold(
       backgroundColor: bgColor,
+      extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -203,75 +206,102 @@ class _FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Nav background is slightly lighter than scaffold
-    final navBg = isDark ? const Color(0xFF141414) : Colors.white;
-    final shadowColor = isDark
-        ? Colors.black.withAlpha(100)
-        : const Color(0xFF7B6CF6).withAlpha(28);
-
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Container(
-          height: 66,
-          decoration: BoxDecoration(
-            color: navBg,
-            borderRadius: BorderRadius.circular(33),
-            border: Border.all(
-              color: isDark
-                  ? const Color(0xFF1E1E3C)
-                  : const Color(0xFFE5E4F0),
-              width: 1,
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(36),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              height: 66,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(36),
+                border: Border.all(
+                  // Dark: subtle white rim; Light: visible dark outline to lift pill off bg
+                  color: isDark
+                      ? Colors.white.withAlpha(28)
+                      : Colors.black.withAlpha(16),
+                  width: 1,
+                ),
+                // Glass tint + top-edge tube highlight in one gradient
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: isDark
+                      ? [
+                          Colors.white.withAlpha(26),
+                          Colors.white.withAlpha(12),
+                          Colors.white.withAlpha(8),
+                        ]
+                      : [
+                          // Cool blue-white frosted top
+                          const Color(0xFFFFFFFF).withAlpha(240),
+                          // Slight cool tint mid
+                          const Color(0xFFF0F4FF).withAlpha(200),
+                          // Deeper cool at bottom for depth
+                          const Color(0xFFE6ECFA).withAlpha(185),
+                        ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+                boxShadow: [
+                  // Main lift shadow
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withAlpha(70)
+                        : Colors.black.withAlpha(28),
+                    blurRadius: 24,
+                    offset: const Offset(0, 6),
+                  ),
+                  // Ambient glow
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withAlpha(30)
+                        : Colors.black.withAlpha(10),
+                    blurRadius: 48,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  _NavItem(
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home_rounded,
+                    index: 0,
+                    current: currentIndex,
+                    onTap: onTap,
+                  ),
+                  _NavItem(
+                    icon: Icons.receipt_long_outlined,
+                    activeIcon: Icons.receipt_long_rounded,
+                    index: 1,
+                    current: currentIndex,
+                    onTap: onTap,
+                  ),
+                  _NavItemCta(
+                    index: 2,
+                    current: currentIndex,
+                    onTap: () => onTap(2),
+                    onLongPress: onMicLongPress,
+                  ),
+                  _NavItem(
+                    icon: Icons.account_balance_wallet_outlined,
+                    activeIcon: Icons.account_balance_wallet_rounded,
+                    index: 3,
+                    current: currentIndex,
+                    onTap: onTap,
+                  ),
+                  _NavItem(
+                    icon: Icons.settings_outlined,
+                    activeIcon: Icons.settings_rounded,
+                    index: 4,
+                    current: currentIndex,
+                    onTap: onTap,
+                  ),
+                ],
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              _NavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
-                label: 'Home',
-                index: 0,
-                current: currentIndex,
-                onTap: onTap,
-              ),
-              _NavItem(
-                icon: Icons.receipt_long_outlined,
-                activeIcon: Icons.receipt_long_rounded,
-                label: 'Txns',
-                index: 1,
-                current: currentIndex,
-                onTap: onTap,
-              ),
-              _NavItemCta(
-                index: 2,
-                current: currentIndex,
-                onTap: () => onTap(2),
-                onLongPress: onMicLongPress,
-              ),
-              _NavItem(
-                icon: Icons.account_balance_wallet_outlined,
-                activeIcon: Icons.account_balance_wallet_rounded,
-                label: 'Budget',
-                index: 3,
-                current: currentIndex,
-                onTap: onTap,
-              ),
-              _NavItem(
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings_rounded,
-                label: 'More',
-                index: 4,
-                current: currentIndex,
-                onTap: onTap,
-              ),
-            ],
           ),
         ),
       ),
@@ -284,7 +314,6 @@ class _FloatingNavBar extends StatelessWidget {
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final IconData activeIcon;
-  final String label;
   final int index;
   final int current;
   final void Function(int) onTap;
@@ -292,7 +321,6 @@ class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,
     required this.activeIcon,
-    required this.label,
     required this.index,
     required this.current,
     required this.onTap,
@@ -307,39 +335,23 @@ class _NavItem extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onTap(index),
         behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                // Active: tinted accent pill; inactive: transparent
-                color: isActive
-                    ? cs.primary.withAlpha(22)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                isActive ? activeIcon : icon,
-                // Active: solid accent; inactive: muted
-                color: isActive ? cs.primary : cs.onSurfaceVariant,
-                size: 22,
-              ),
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? cs.primary.withAlpha(22)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 2),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-                color: isActive ? cs.primary : cs.onSurfaceVariant,
-                letterSpacing: 0,
-              ),
-              child: Text(label),
+            child: Icon(
+              isActive ? activeIcon : icon,
+              color: isActive ? cs.primary : cs.onSurfaceVariant,
+              size: 24,
             ),
-          ],
+          ),
         ),
       ),
     );

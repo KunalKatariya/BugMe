@@ -447,7 +447,7 @@ class GoalsScreen extends ConsumerWidget {
                   await db.insertTransaction(TransactionsCompanion.insert(
                     uuid: const Uuid().v4(),
                     amount: amount,
-                    category: 'Investment',
+                    category: 'Investments',
                     description: 'Contribution – ${goal.name}',
                     date: DateTime.now(),
                     accountId: Value(goal.accountId),
