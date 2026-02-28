@@ -184,12 +184,6 @@ lib/
 
 ---
 
-## 📄 License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
 <div align="center">
   <sub>Built with Flutter · Powered by Gemini AI · Your money, your device.</sub>
 </div>
