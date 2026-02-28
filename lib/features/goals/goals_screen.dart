@@ -24,7 +24,7 @@ class GoalsScreen extends ConsumerWidget {
     final goalsAsync      = ref.watch(goalsProvider);
     final recurringAsync  = ref.watch(recurringPaymentsProvider);
     final currency   = ref.watch(currencyProvider);
-    final bgColor    = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor    = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -49,7 +49,9 @@ class GoalsScreen extends ConsumerWidget {
                   _SectionHeader(
                     left: 'MY GOALS',
                     right: '${goalsList.length} goal${goalsList.length != 1 ? 's' : ''}',
-                    tt: tt,
+                    icon: Icons.flag_rounded,
+                    color: AppTheme.positive,
+                    subtitle: 'Save towards your targets',
                     onAdd: () => _showAddGoal(context, ref),
                   ),
                   if (goalsList.isEmpty)
@@ -93,7 +95,9 @@ class GoalsScreen extends ConsumerWidget {
                   _SectionHeader(
                     left: 'RECURRING',
                     right: '${list.length} active',
-                    tt: tt,
+                    icon: Icons.repeat_rounded,
+                    color: AppTheme.warning,
+                    subtitle: 'Bills & subscriptions',
                     onAdd: () => _showAddRecurring(context, ref),
                   ),
                   if (list.isEmpty)
@@ -152,7 +156,7 @@ class GoalsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -211,6 +215,13 @@ class GoalsScreen extends ConsumerWidget {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                 decoration: const InputDecoration(labelText: 'Target amount'),
+                onChanged: (_) {
+                  if (!sipEnabled) return;
+                  final amt = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                  final now = DateTime.now();
+                  final months = ((deadline.year - now.year) * 12 + deadline.month - now.month).clamp(1, 9999);
+                  if (amt > 0) sipCtrl.text = (amt / months).ceil().toString();
+                },
               ),
               const SizedBox(height: 12),
 
@@ -223,7 +234,15 @@ class GoalsScreen extends ConsumerWidget {
                     firstDate: DateTime.now().add(const Duration(days: 1)),
                     lastDate: DateTime.now().add(const Duration(days: 3650)),
                   );
-                  if (picked != null) setSt(() => deadline = picked);
+                  if (picked != null) {
+                    setSt(() => deadline = picked);
+                    if (sipEnabled) {
+                      final amt = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                      final now = DateTime.now();
+                      final months = ((picked.year - now.year) * 12 + picked.month - now.month).clamp(1, 9999);
+                      if (amt > 0) sipCtrl.text = (amt / months).ceil().toString();
+                    }
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -281,11 +300,19 @@ class GoalsScreen extends ConsumerWidget {
                         ),
                         Switch(
                           value: sipEnabled,
-                          onChanged: (v) => setSt(() => sipEnabled = v),
+                          onChanged: (v) {
+                            setSt(() => sipEnabled = v);
+                            if (v) {
+                              final amt = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                              final now = DateTime.now();
+                              final months = ((deadline.year - now.year) * 12 + deadline.month - now.month).clamp(1, 9999);
+                              if (amt > 0) sipCtrl.text = (amt / months).ceil().toString();
+                            }
+                          },
                         ),
                       ],
                     ),
-                    if (sipEnabled) ...[  
+                    if (sipEnabled) ...[
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -373,7 +400,7 @@ class GoalsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
@@ -459,7 +486,7 @@ class GoalsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -522,6 +549,13 @@ class GoalsScreen extends ConsumerWidget {
                   ],
                   decoration:
                       const InputDecoration(labelText: 'Target amount'),
+                  onChanged: (_) {
+                    if (!sipEnabled) return;
+                    final amt = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                    final now = DateTime.now();
+                    final months = ((deadline.year - now.year) * 12 + deadline.month - now.month).clamp(1, 9999);
+                    if (amt > 0) sipCtrl.text = (amt / months).ceil().toString();
+                  },
                 ),
                 const SizedBox(height: 12),
                 GestureDetector(
@@ -532,7 +566,15 @@ class GoalsScreen extends ConsumerWidget {
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 3650)),
                     );
-                    if (picked != null) setSt(() => deadline = picked);
+                    if (picked != null) {
+                      setSt(() => deadline = picked);
+                      if (sipEnabled) {
+                        final amt = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                        final now = DateTime.now();
+                        final months = ((picked.year - now.year) * 12 + picked.month - now.month).clamp(1, 9999);
+                        if (amt > 0) sipCtrl.text = (amt / months).ceil().toString();
+                      }
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -594,7 +636,15 @@ class GoalsScreen extends ConsumerWidget {
                         ),
                         Switch(
                           value: sipEnabled,
-                          onChanged: (v) => setSt(() => sipEnabled = v),
+                          onChanged: (v) {
+                            setSt(() => sipEnabled = v);
+                            if (v) {
+                              final amt = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                              final now = DateTime.now();
+                              final months = ((deadline.year - now.year) * 12 + deadline.month - now.month).clamp(1, 9999);
+                              if (amt > 0) sipCtrl.text = (amt / months).ceil().toString();
+                            }
+                          },
                         ),
                       ]),
                       if (sipEnabled) ...[
@@ -706,7 +756,7 @@ class GoalsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -850,7 +900,7 @@ class GoalsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -970,41 +1020,111 @@ class GoalsScreen extends ConsumerWidget {
 class _SectionHeader extends StatelessWidget {
   final String left;
   final String right;
-  final TextTheme tt;
+  final IconData icon;
+  final Color color;
+  final String subtitle;
   final VoidCallback? onAdd;
-  const _SectionHeader({required this.left, required this.right, required this.tt, this.onAdd});
+
+  const _SectionHeader({
+    required this.left,
+    required this.right,
+    required this.icon,
+    required this.color,
+    required this.subtitle,
+    this.onAdd,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final cs     = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 0, 0, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Text(left,
-                style: tt.labelMedium?.copyWith(
-                    letterSpacing: 1.0,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurfaceVariant)),
-          ),
-          if (right.isNotEmpty)
-            Text(right, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          if (onAdd != null)
-            TextButton.icon(
-              onPressed: onAdd,
-              style: TextButton.styleFrom(
-                foregroundColor: cs.onSurface,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: color.withAlpha(isDark ? 18 : 12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withAlpha(50), width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withAlpha(30),
+                shape: BoxShape.circle,
               ),
-              icon: const Icon(Icons.add_rounded, size: 15),
-              label: const Text('Add',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              child: Icon(icon, color: color, size: 16),
             ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    left,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (right.isNotEmpty)
+              Text(
+                right,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            if (onAdd != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onAdd,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(isDark ? 30 : 20),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 13, color: color),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Add',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -1051,7 +1171,7 @@ class _GoalCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
+        color: isDark ? const Color(0xFF141414) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: goalBlue.withAlpha(80), width: 1),
         boxShadow: isDark
@@ -1341,7 +1461,7 @@ class _RecurringCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
+          color: isDark ? const Color(0xFF141414) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withAlpha(40), width: 1),
         ),
@@ -1408,7 +1528,7 @@ class _EmptyCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
+          color: isDark ? const Color(0xFF141414) : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: cs.outline, width: 0.5),
         ),

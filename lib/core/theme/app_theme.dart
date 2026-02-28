@@ -4,37 +4,37 @@ import 'package:flutter/services.dart';
 class AppTheme {
   AppTheme._();
 
-  // Semantic
-  static const Color positive = Color(0xFF22C55E);
-  static const Color negative = Color(0xFFEF4444);
-  static const Color warning  = Color(0xFFF59E0B);
+  // ── Semantic ──────────────────────────────────────────────────────
+  static const Color positive = Color(0xFF10B981); // emerald green
+  static const Color negative = Color(0xFFF43F5E); // rose red
+  static const Color warning  = Color(0xFFF59E0B); // amber
 
-  // Vibrant category palette (for icon chip backgrounds)
+  // ── Category palette (vibrant, 15 unique hues) ────────────────────
   static const List<Color> categoryColors = [
     Color(0xFFFF6B35), // Groceries
     Color(0xFFE53935), // Restaurants
-    Color(0xFF6D4C41), // Coffee & Drinks
-    Color(0xFF1E88E5), // Transport
-    Color(0xFF8E24AA), // Entertainment
-    Color(0xFFE91E63), // Shopping
-    Color(0xFF00897B), // Travel
-    Color(0xFF43A047), // Health & Fitness
-    Color(0xFFF9A825), // Utilities & Bills
-    Color(0xFF3949AB), // Subscriptions
-    Color(0xFF0097A7), // Education
-    Color(0xFFF06292), // Personal Care
-    Color(0xFF546E7A), // Rent & Housing
-    Color(0xFF2E7D32), // Investments
-    Color(0xFF757575), // Other
+    Color(0xFF8D6E63), // Coffee & Drinks
+    Color(0xFF42A5F5), // Transport
+    Color(0xFFAB47BC), // Entertainment
+    Color(0xFFEC407A), // Shopping
+    Color(0xFF26A69A), // Travel
+    Color(0xFF66BB6A), // Health & Fitness
+    Color(0xFFFFA726), // Utilities & Bills
+    Color(0xFF5C6BC0), // Subscriptions
+    Color(0xFF26C6DA), // Education
+    Color(0xFFEF9A9A), // Personal Care
+    Color(0xFF78909C), // Rent & Housing
+    Color(0xFF43A047), // Investments
+    Color(0xFF9E9E9E), // Other
   ];
 
-  // ── Dark ──────────────────────────────────────────────
+  // ── Dark ──────────────────────────────────────────────────────────
   static ThemeData get dark {
-    const bg     = Color(0xFF0A0A0A);
-    const card   = Color(0xFF161616);
-    const border = Color(0xFF272727);
-    const onPrimary  = Color(0xFF000000);
-    const primary    = Color(0xFFFFFFFF);
+    // Pure matte black — no blue/purple tint.
+    const bg      = Color(0xFF0A0A0A);
+    const card    = Color(0xFF141414);
+    const border  = Color(0xFF242424);
+    const primary    = Colors.white;   // text + interactive
     const secondary  = Color(0xFF888888);
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -48,9 +48,11 @@ class AppTheme {
       brightness: Brightness.dark,
       cs: const ColorScheme.dark(
         primary: primary,
-        onPrimary: onPrimary,
+        onPrimary: Colors.black,
+        secondary: Colors.white70,
+        onSecondary: Colors.black,
         surface: bg,
-        error: Color(0xFFEF4444),
+        error: Color(0xFFF43F5E),
         onSurface: primary,
         onSurfaceVariant: secondary,
         outline: border,
@@ -62,13 +64,13 @@ class AppTheme {
     );
   }
 
-  // ── Light ─────────────────────────────────────────────
+  // ── Light ─────────────────────────────────────────────────────────
   static ThemeData get light {
-    const bg     = Color(0xFFF2F2F2);
-    const card   = Color(0xFFFFFFFF);
-    const border = Color(0xFFE5E5E5);
-    const primary   = Color(0xFF000000);
-    const secondary = Color(0xFF888888);
+    const bg      = Color(0xFFF5F5F5);
+    const card    = Color(0xFFFFFFFF);
+    const border  = Color(0xFFE8E8E8);
+    const primary    = Color(0xFF0A0A0A); // near-black text
+    const secondary  = Color(0xFF6B7280); // neutral gray
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -82,8 +84,10 @@ class AppTheme {
       cs: const ColorScheme.light(
         primary: primary,
         onPrimary: Colors.white,
+        secondary: Colors.black54,
+        onSecondary: Colors.white,
         surface: bg,
-        error: Color(0xFFEF4444),
+        error: Color(0xFFF43F5E),
         onSurface: primary,
         onSurfaceVariant: secondary,
         outline: border,
@@ -131,7 +135,7 @@ class AppTheme {
         elevation: 0,
         shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: cs.outline, width: isDark ? 0.5 : 1),
         ),
         margin: EdgeInsets.zero,
@@ -143,116 +147,104 @@ class AppTheme {
         space: 0,
       ),
 
+      // ── Buttons ────────────────────────────────────────────────────
+      // Black bg + white text (light) | White bg + black text (dark).
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: textPrimary,
-          foregroundColor: cardBg,
+          backgroundColor: textPrimary,          // white in dark, black in light
+          foregroundColor: isDark ? Colors.black : Colors.white,
           elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(
-              fontWeight: FontWeight.w600, letterSpacing: 0),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              fontWeight: FontWeight.w700, letterSpacing: 0, fontSize: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
         ),
       ),
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: textPrimary,
-          side: BorderSide(color: cs.outline, width: 1),
+          side: BorderSide(color: textPrimary.withAlpha(100), width: 1.5),
+          backgroundColor: textPrimary.withAlpha(isDark ? 15 : 10),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(
-              fontWeight: FontWeight.w500, letterSpacing: 0),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              fontWeight: FontWeight.w600, letterSpacing: 0, fontSize: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
         ),
       ),
 
+      // ── Inputs ─────────────────────────────────────────────────────
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark
-            ? Colors.white.withAlpha(8)
-            : Colors.black.withAlpha(5),
+            ? Colors.white.withAlpha(6)
+            : Colors.black.withAlpha(4),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: cs.outline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: cs.outline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: textPrimary, width: 1.5),
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: TextStyle(color: textSecondary, fontSize: 14),
         labelStyle: TextStyle(color: textSecondary, fontSize: 14),
+        floatingLabelStyle: TextStyle(color: textPrimary, fontSize: 13),
       ),
 
+      // ── Typography ─────────────────────────────────────────────────
       textTheme: base.textTheme.copyWith(
         displayLarge: TextStyle(
-            color: textPrimary,
-            fontSize: 52,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -2),
+            color: textPrimary, fontSize: 52,
+            fontWeight: FontWeight.w900, letterSpacing: -2.5),
         displayMedium: TextStyle(
-            color: textPrimary,
-            fontSize: 40,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.5),
+            color: textPrimary, fontSize: 40,
+            fontWeight: FontWeight.w800, letterSpacing: -2),
         displaySmall: TextStyle(
-            color: textPrimary,
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1),
+            color: textPrimary, fontSize: 32,
+            fontWeight: FontWeight.w800, letterSpacing: -1.5),
         headlineLarge: TextStyle(
-            color: textPrimary,
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5),
+            color: textPrimary, fontSize: 26,
+            fontWeight: FontWeight.w800, letterSpacing: -0.8),
         headlineMedium: TextStyle(
-            color: textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3),
+            color: textPrimary, fontSize: 22,
+            fontWeight: FontWeight.w700, letterSpacing: -0.5),
         titleLarge: TextStyle(
-            color: textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700),
+            color: textPrimary, fontSize: 18,
+            fontWeight: FontWeight.w700, letterSpacing: -0.2),
         titleMedium: TextStyle(
-            color: textPrimary,
-            fontSize: 16,
+            color: textPrimary, fontSize: 16,
             fontWeight: FontWeight.w600),
         titleSmall: TextStyle(
-            color: textPrimary,
-            fontSize: 14,
+            color: textPrimary, fontSize: 14,
             fontWeight: FontWeight.w600),
         bodyLarge: TextStyle(
-            color: textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w400),
+            color: textPrimary, fontSize: 16,
+            fontWeight: FontWeight.w400, height: 1.5),
         bodyMedium: TextStyle(
-            color: textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w400),
+            color: textPrimary, fontSize: 14,
+            fontWeight: FontWeight.w400, height: 1.5),
         bodySmall: TextStyle(
-            color: textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w400),
+            color: textSecondary, fontSize: 12,
+            fontWeight: FontWeight.w400, height: 1.5),
         labelLarge: TextStyle(
-            color: textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.0),
+            color: textSecondary, fontSize: 11,
+            fontWeight: FontWeight.w700, letterSpacing: 1.1),
         labelMedium: TextStyle(
-            color: textSecondary,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.5),
+            color: textSecondary, fontSize: 10,
+            fontWeight: FontWeight.w600, letterSpacing: 0.6),
+        labelSmall: TextStyle(
+            color: textSecondary, fontSize: 9,
+            fontWeight: FontWeight.w600, letterSpacing: 0.5),
       ),
     );
   }

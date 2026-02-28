@@ -367,7 +367,7 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs     = Theme.of(context).colorScheme;
     final tt     = Theme.of(context).textTheme;
-    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -560,7 +560,7 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
+          color: isDark ? const Color(0xFF141414) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: cs.outline, width: 0.5),
         ),

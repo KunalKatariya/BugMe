@@ -17,7 +17,7 @@ class AccountsScreen extends ConsumerWidget {
     final isDark       = Theme.of(context).brightness == Brightness.dark;
     final accountsAsync = ref.watch(accountsProvider);
     final selectedId   = ref.watch(selectedAccountProvider);
-    final bgColor      = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor      = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -154,7 +154,7 @@ class AccountsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF161616) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -286,7 +286,7 @@ class AccountsScreen extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF161616) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -471,7 +471,7 @@ class _AccountCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
+          color: isDark ? const Color(0xFF141414) : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isActive

@@ -39,15 +39,12 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
       onStatus: (s) {
         if (s == 'done' || s == 'notListening') {
           if (mounted) setState(() => _isListening = false);
-          // Delay slightly to let the final onResult fire before we read
-          // _transcribed — this prevents a race where onStatus arrives first.
           Future.delayed(const Duration(milliseconds: 350), () {
             if (mounted && _transcribed.isNotEmpty && !_isParsing) _callGemini();
           });
         }
       },
       onError: (e) {
-        // Treat timeout / no-match as a graceful stop, not a visible error.
         const silentErrors = {
           'error_speech_timeout',
           'error_no_match',
@@ -91,7 +88,7 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
       if (!mounted) return;
       if (results.isEmpty) {
         setState(() {
-          _error = "Couldn't detect any expenses. Try speaking more clearly — e.g. \"spent 200 on food\"";
+          _error = "Couldn't detect any expenses. Try again — e.g. \"spent 200 on lunch\"";
           _isParsing = false;
         });
         return;
@@ -128,7 +125,7 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
         content: Text('$savedCount ${savedCount == 1 ? "entry" : "entries"} added'),
         backgroundColor: AppTheme.positive,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     }
   }
@@ -139,7 +136,7 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
     final cs       = Theme.of(context).colorScheme;
     final isDark   = Theme.of(context).brightness == Brightness.dark;
     final currency = ref.watch(currencyProvider);
-    final bgColor  = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor  = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     // Auto-start recording when triggered by long-pressing the mic nav button.
     ref.listen<bool>(autoStartRecordingProvider, (_, shouldStart) {
@@ -162,10 +159,11 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: Column(
                 children: [
-                  _MicCard(
+                  // ── Centre mic orb ──────────────────────────────────────
+                  _MicOrb(
                     isListening: _isListening,
                     speechAvailable: _speechAvailable,
                     transcribed: _transcribed,
@@ -174,19 +172,20 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
                     tt: tt,
                     isDark: isDark,
                     onTap: _isListening ? _stopListening : _startListening,
-                  ).animate().fadeIn(duration: 350.ms),
+                  ).animate().fadeIn(duration: 300.ms),
 
                   if (_error != null) ...[
                     const SizedBox(height: 16),
-                    _ErrorBanner(error: _error!, cs: cs, tt: tt),
+                    _ErrorBanner(error: _error!, cs: cs, tt: tt)
+                        .animate().fadeIn(duration: 250.ms).slideY(begin: 0.1),
                   ],
 
                   if (_parsedList.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     // Multi-entry header
                     if (_parsedList.length > 1)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                        padding: const EdgeInsets.only(bottom: 12),
                         child: Row(
                           children: [
                             Text(
@@ -199,6 +198,8 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
                                 _parsedList = [];
                                 _transcribed = '';
                               }),
+                              style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.negative),
                               child: const Text('Discard All'),
                             ),
                           ],
@@ -234,7 +235,7 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
                       ),
                   ],
 
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
@@ -245,9 +246,9 @@ class _VoiceEntryScreenState extends ConsumerState<VoiceEntryScreen> {
   }
 }
 
-// ── Mic card ───────────────────────────────────────────────────────────────
+// ── Mic orb — the core CTA of the voice screen ─────────────────────────────
 
-class _MicCard extends StatelessWidget {
+class _MicOrb extends StatelessWidget {
   final bool isListening;
   final bool speechAvailable;
   final String transcribed;
@@ -257,7 +258,7 @@ class _MicCard extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTap;
 
-  const _MicCard({
+  const _MicOrb({
     required this.isListening,
     required this.speechAvailable,
     required this.transcribed,
@@ -269,80 +270,191 @@ class _MicCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: cs.outline, width: 0.5),
-        ),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: speechAvailable ? onTap : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: isListening
-                      ? cs.onSurface
-                      : cs.onSurface.withAlpha(12),
-                  shape: BoxShape.circle,
-                  boxShadow: isListening
-                      ? [BoxShadow(
-                          color: cs.onSurface.withAlpha(60),
-                          blurRadius: 24,
-                          spreadRadius: 2)]
-                      : [],
-                ),
-                child: Icon(
-                  isListening ? Icons.stop_rounded : Icons.mic_rounded,
-                  color: isListening
-                      ? (isDark ? Colors.black : Colors.white)
-                      : cs.onSurface,
-                  size: 36,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (!speechAvailable)
-              Text('Speech not available',
-                  style: tt.bodySmall?.copyWith(color: cs.error))
-            else if (isParsing)
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: cs.onSurface)),
-                const SizedBox(width: 10),
-                Text('Processing your request...', style: tt.bodySmall),
-              ])
-            else if (isListening)
-              Text('Listening — tap to stop', style: tt.bodySmall)
-            else
-              Text('Tap to speak your expense', style: tt.bodySmall),
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 32),
 
-            if (transcribed.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.onSurface.withAlpha(8),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '"$transcribed"',
-                  style: tt.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-                  textAlign: TextAlign.center,
+        // ── Orb + pulse rings ──────────────────────────────────────────
+        SizedBox(
+          width: 180,
+          height: 180,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Pulse ring 1 (shown while listening)
+              if (isListening)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 600),
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: cs.onSurface.withAlpha(40), width: 1.5),
+                  ),
+                )
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15),
+                        duration: 800.ms, curve: Curves.easeInOut),
+
+              // Pulse ring 2 (offset phase)
+              if (isListening)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 600),
+                  width: 130,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: cs.onSurface.withAlpha(55), width: 1.5),
+                  ),
+                )
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1),
+                        duration: 700.ms,
+                        delay: 150.ms,
+                        curve: Curves.easeInOut),
+
+              // Main orb button
+              GestureDetector(
+                onTap: speechAvailable ? onTap : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutCubic,
+                  width: isListening ? 108 : 96,
+                  height: isListening ? 108 : 96,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isListening
+                          ? isDark
+                              ? [Colors.white, const Color(0xFFE0E0E0)]
+                              : [const Color(0xFF0A0A0A), const Color(0xFF1A1A1A)]
+                          : isDark
+                              ? [const Color(0xFF1C1C1C), const Color(0xFF0F0F0F)]
+                              : [const Color(0xFFF5F5F5), Colors.white],
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: cs.onSurface
+                          .withAlpha(isListening ? 100 : 60),
+                      width: isListening ? 2 : 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.onSurface
+                            .withAlpha(isListening ? 110 : 45),
+                        blurRadius: isListening ? 36 : 16,
+                        spreadRadius: isListening ? 4 : 0,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isParsing
+                        ? Icons.auto_awesome_rounded
+                        : isListening
+                            ? Icons.stop_rounded
+                            : Icons.mic_rounded,
+                    color: isListening
+                        ? (isDark ? Colors.black : Colors.white)
+                        : cs.onSurface,
+                    size: isListening ? 46 : 40,
+                  ),
                 ),
               ),
             ],
-          ],
+          ),
         ),
+
+        const SizedBox(height: 24),
+
+        // ── Status text ────────────────────────────────────────────────
+        if (!speechAvailable)
+          _StatusChip(
+            label: 'Speech not available',
+            color: cs.error,
+            icon: Icons.error_outline_rounded,
+          )
+        else if (isParsing)
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: cs.onSurface)),
+            const SizedBox(width: 10),
+            Text('Analysing...', style: tt.bodyMedium?.copyWith(
+                color: cs.onSurface, fontWeight: FontWeight.w600)),
+          ])
+        else if (isListening)
+          _StatusChip(
+            label: 'Listening  •  tap to stop',
+            color: AppTheme.positive,
+            icon: Icons.fiber_manual_record_rounded,
+          )
+        else
+          Text('Tap the mic and speak your expense',
+              style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center),
+
+        // ── Transcribed text bubble ────────────────────────────────────
+        if (transcribed.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: cs.onSurface.withAlpha(isDark ? 12 : 8),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: cs.onSurface.withAlpha(40), width: 1),
+            ),
+            child: Text(
+              '"$transcribed"',
+              style: tt.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: cs.onSurface.withAlpha(200),
+                  height: 1.55),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+// ── Small status chip ──────────────────────────────────────────────────────
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData icon;
+
+  const _StatusChip({required this.label, required this.color, required this.icon});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withAlpha(14),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withAlpha(60), width: 1),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+        ]),
       );
 }
 
@@ -356,7 +468,7 @@ class _ConfirmCard extends StatelessWidget {
   final bool isDark;
   final ValueChanged<String> onCategoryChange;
   final ValueChanged<DateTime> onDateChange;
-  final VoidCallback? onSave;  // null → no save button (shown externally)
+  final VoidCallback? onSave;
   final VoidCallback onDiscard;
 
   const _ConfirmCard({
@@ -378,59 +490,93 @@ class _ConfirmCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
+        color: isDark ? const Color(0xFF141414) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline, width: 0.5),
+        border: Border.all(
+            color: isDark ? const Color(0xFF1E1E3C) : const Color(0xFFE5E4F0),
+            width: 1),
+        boxShadow: isDark
+            ? null
+            : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 16, offset: const Offset(0, 4))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row with label + dismiss
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('CONFIRM ENTRY', style: tt.labelLarge),
-                IconButton(
-                  icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
-                  onPressed: onDiscard,
-                  visualDensity: VisualDensity.compact,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.positive.withAlpha(18),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.positive.withAlpha(70)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.check_rounded, color: AppTheme.positive, size: 12),
+                    const SizedBox(width: 4),
+                    Text('PARSED',
+                        style: TextStyle(
+                            color: AppTheme.positive,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8)),
+                  ]),
+                ),
+                GestureDetector(
+                  onTap: onDiscard,
+                  child: Container(
+                    width: 30, height: 30,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withAlpha(8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.close_rounded,
+                        size: 16, color: cs.onSurfaceVariant),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
+
+            // Amount + description row
             Row(children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: color.withAlpha(20),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: color.withAlpha(50), width: 1),
                 ),
                 child: Center(child: Text(emoji,
-                    style: const TextStyle(fontSize: 22))),
+                    style: const TextStyle(fontSize: 24))),
               ),
               const SizedBox(width: 14),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   formatAmount(parsed.amount, currency),
-                  style: tt.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+                  style: tt.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5),
                 ),
                 const SizedBox(height: 2),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 230),
-                  child: Text(
-                    parsed.description,
-                    style: tt.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w500),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Text(
+                  parsed.description,
+                  style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w500),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ]),
+              ])),
             ]),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
+
+            // Category dropdown
             DropdownButtonFormField<String>(
               initialValue: categories.contains(parsed.category)
                   ? parsed.category
@@ -443,7 +589,8 @@ class _ConfirmCard extends StatelessWidget {
               onChanged: (v) { if (v != null) onCategoryChange(v); },
             ),
             const SizedBox(height: 10),
-            // Tappable date row
+
+            // Date picker row
             GestureDetector(
               onTap: () async {
                 final picked = await showDatePicker(
@@ -455,38 +602,41 @@ class _ConfirmCard extends StatelessWidget {
                 if (picked != null) onDateChange(picked);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: cs.onSurface.withAlpha(8),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cs.outline, width: 0.8),
+                  color: cs.onSurface.withAlpha(7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: cs.outline, width: 1),
                 ),
                 child: Row(children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 13, color: cs.onSurfaceVariant),
-                  const SizedBox(width: 6),
+                  Icon(Icons.calendar_month_rounded,
+                      size: 14, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 8),
                   Text(
-                    parsed.date.toLocal().toString().split(' ')[0],
-                    style: tt.bodySmall,
+                    _formatDate(parsed.date),
+                    style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(width: 6),
-                  Icon(Icons.edit_outlined,
-                      size: 11, color: cs.onSurfaceVariant),
+                  const Spacer(),
+                  Icon(Icons.edit_rounded, size: 12, color: cs.onSurfaceVariant),
                 ]),
               ),
             ),
             const SizedBox(height: 20),
+
+            // Action buttons
             Row(children: [
               Expanded(
                 child: OutlinedButton(
-                    onPressed: onDiscard, child: const Text('Discard')),
+                    onPressed: onDiscard,
+                    child: const Text('Discard')),
               ),
               if (onSave != null) ...[
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                      onPressed: onSave, child: const Text('Save')),
+                      onPressed: onSave,
+                      child: const Text('Save Entry')),
                 ),
               ],
             ]),
@@ -494,6 +644,14 @@ class _ConfirmCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _formatDate(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 }
 
@@ -511,18 +669,19 @@ class _ErrorBanner extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cs.error.withAlpha(15),
-          borderRadius: BorderRadius.circular(12),
+          color: cs.error.withAlpha(14),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: cs.error.withAlpha(50)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.error_outline, color: cs.error, size: 16),
-            const SizedBox(width: 8),
+            Icon(Icons.error_outline_rounded, color: cs.error, size: 18),
+            const SizedBox(width: 10),
             Flexible(
                 child: Text(error,
-                    style: tt.bodySmall?.copyWith(color: cs.error))),
+                    style: tt.bodySmall?.copyWith(
+                        color: cs.error, height: 1.5))),
           ],
         ),
       );

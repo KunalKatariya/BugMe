@@ -135,8 +135,10 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Scaffold(backgroundColor: Color(0xFF04040F));
+      const Scaffold(backgroundColor: Color(0xFF0A0A0A));
 }
+
+// ── App shell ─────────────────────────────────────────────────────────────
 
 class _AppShell extends ConsumerStatefulWidget {
   const _AppShell();
@@ -159,8 +161,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
   @override
   Widget build(BuildContext context) {
     final isDark  = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
-    final navBg   = isDark ? const Color(0xFF111111) : Colors.white;
+    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -168,48 +169,114 @@ class _AppShellState extends ConsumerState<_AppShell> {
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: navBg,
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withAlpha(80)
-                  : Colors.black.withAlpha(18),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                _NavItem(icon: Icons.home_outlined,          activeIcon: Icons.home_rounded,            label: 'Home',    index: 0, current: _currentIndex, onTap: _onTap),
-                _NavItem(icon: Icons.receipt_long_outlined,  activeIcon: Icons.receipt_long_rounded,    label: 'Txns',    index: 1, current: _currentIndex, onTap: _onTap),
-                _NavItemCta(
-                  index: 2,
-                  current: _currentIndex,
-                  isDark: isDark,
-                  onTap: () => _onTap(2),
-                  onLongPress: () {
-                    HapticFeedback.heavyImpact();
-                    ref.read(autoStartRecordingProvider.notifier).state = true;
-                    _onTap(2);
-                  },
-                ),
-                _NavItem(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet_rounded, label: 'Budget',   index: 3, current: _currentIndex, onTap: _onTap),
-                _NavItem(icon: Icons.settings_outlined,      activeIcon: Icons.settings_rounded,        label: 'Settings',index: 4, current: _currentIndex, onTap: _onTap),
-              ],
-            ),
-          ),
-        ),
+      // Floating pill nav bar — sits above the bottom safe area.
+      bottomNavigationBar: _FloatingNavBar(
+        currentIndex: _currentIndex,
+        isDark: isDark,
+        onTap: _onTap,
+        onMicLongPress: () {
+          HapticFeedback.heavyImpact();
+          ref.read(autoStartRecordingProvider.notifier).state = true;
+          _onTap(2);
+        },
       ),
     );
   }
 
   void _onTap(int i) => setState(() => _currentIndex = i);
+}
+
+// ── Floating nav bar container ─────────────────────────────────────────────
+
+class _FloatingNavBar extends StatelessWidget {
+  final int currentIndex;
+  final bool isDark;
+  final void Function(int) onTap;
+  final VoidCallback onMicLongPress;
+
+  const _FloatingNavBar({
+    required this.currentIndex,
+    required this.isDark,
+    required this.onTap,
+    required this.onMicLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Nav background is slightly lighter than scaffold
+    final navBg = isDark ? const Color(0xFF141414) : Colors.white;
+    final shadowColor = isDark
+        ? Colors.black.withAlpha(100)
+        : const Color(0xFF7B6CF6).withAlpha(28);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Container(
+          height: 66,
+          decoration: BoxDecoration(
+            color: navBg,
+            borderRadius: BorderRadius.circular(33),
+            border: Border.all(
+              color: isDark
+                  ? const Color(0xFF1E1E3C)
+                  : const Color(0xFFE5E4F0),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: shadowColor,
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _NavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Home',
+                index: 0,
+                current: currentIndex,
+                onTap: onTap,
+              ),
+              _NavItem(
+                icon: Icons.receipt_long_outlined,
+                activeIcon: Icons.receipt_long_rounded,
+                label: 'Txns',
+                index: 1,
+                current: currentIndex,
+                onTap: onTap,
+              ),
+              _NavItemCta(
+                index: 2,
+                current: currentIndex,
+                onTap: () => onTap(2),
+                onLongPress: onMicLongPress,
+              ),
+              _NavItem(
+                icon: Icons.account_balance_wallet_outlined,
+                activeIcon: Icons.account_balance_wallet_rounded,
+                label: 'Budget',
+                index: 3,
+                current: currentIndex,
+                onTap: onTap,
+              ),
+              _NavItem(
+                icon: Icons.settings_outlined,
+                activeIcon: Icons.settings_rounded,
+                label: 'More',
+                index: 4,
+                current: currentIndex,
+                onTap: onTap,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ── Regular nav item ───────────────────────────────────────────────────────
@@ -235,7 +302,6 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isActive = current == index;
     final cs       = Theme.of(context).colorScheme;
-    final isDark   = Theme.of(context).brightness == Brightness.dark;
 
     return Expanded(
       child: GestureDetector(
@@ -246,30 +312,32 @@ class _NavItem extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
+                // Active: tinted accent pill; inactive: transparent
                 color: isActive
-                    ? (isDark
-                        ? Colors.white.withAlpha(18)
-                        : Colors.black.withAlpha(10))
+                    ? cs.primary.withAlpha(22)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
                 isActive ? activeIcon : icon,
-                color: isActive ? cs.onSurface : cs.onSurfaceVariant,
+                // Active: solid accent; inactive: muted
+                color: isActive ? cs.primary : cs.onSurfaceVariant,
                 size: 22,
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              label,
+            const SizedBox(height: 2),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-                color: isActive ? cs.onSurface : cs.onSurfaceVariant,
+                color: isActive ? cs.primary : cs.onSurfaceVariant,
                 letterSpacing: 0,
               ),
+              child: Text(label),
             ),
           ],
         ),
@@ -278,19 +346,17 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ── Centre CTA button ──────────────────────────────────────────────────────
+// ── Centre CTA mic button ──────────────────────────────────────────────────
 
 class _NavItemCta extends StatelessWidget {
   final int index;
   final int current;
-  final bool isDark;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
   const _NavItemCta({
     required this.index,
     required this.current,
-    required this.isDark,
     required this.onTap,
     this.onLongPress,
   });
@@ -298,7 +364,11 @@ class _NavItemCta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = current == index;
-    final cs       = Theme.of(context).colorScheme;
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+
+    // White button in dark mode, near-black in light — sharp & premium.
+    final ctaColor  = isDark ? Colors.white : const Color(0xFF0A0A0A);
+    final iconColor = isDark ? Colors.black : Colors.white;
 
     return Expanded(
       child: Center(
@@ -306,26 +376,26 @@ class _NavItemCta extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 76,
-            height: 50,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            width: isActive ? 60 : 54,
+            height: isActive ? 60 : 54,
             decoration: BoxDecoration(
-              color: isActive
-                  ? (isDark ? Colors.white : Colors.black)
-                  : cs.onSurface,
-              borderRadius: BorderRadius.circular(25),
+              color: ctaColor,
+              borderRadius: BorderRadius.circular(isActive ? 20 : 18),
               boxShadow: [
                 BoxShadow(
-                  color: cs.onSurface.withAlpha(isDark ? 60 : 50),
-                  blurRadius: 16,
+                  color: ctaColor.withAlpha(isActive ? 70 : 40),
+                  blurRadius: isActive ? 20 : 10,
+                  spreadRadius: isActive ? 1 : 0,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Icon(
               isActive ? Icons.mic_rounded : Icons.mic_none_rounded,
-              color: isDark ? Colors.black : Colors.white,
-              size: 26,
+              color: iconColor,
+              size: isActive ? 28 : 24,
             ),
           ),
         ),

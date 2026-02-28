@@ -28,14 +28,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final currency    = ref.watch(currencyProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2),
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             floating: true,
             pinned: false,
             toolbarHeight: 64,
-            backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2),
+            backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5),
             title: Text('Transactions', style: tt.headlineMedium),
           ),
 
@@ -81,17 +81,21 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   ? txns
                   : txns.where((t) => t.category == _filterCategory).toList();
 
-              if (filtered.isEmpty) {
+      if (filtered.isEmpty) {
                 return SliverFillRemaining(
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🧾',
-                            style: TextStyle(fontSize: 48)),
+                        Icon(Icons.receipt_long_outlined,
+                            size: 56, color: cs.onSurfaceVariant.withAlpha(80)),
                         const SizedBox(height: 12),
                         Text('No transactions',
                             style: tt.bodyLarge?.copyWith(
+                                color: cs.onSurfaceVariant)),
+                        const SizedBox(height: 4),
+                        Text('Tap the mic to add your first entry',
+                            style: tt.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant)),
                       ],
                     ),
@@ -181,7 +185,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -386,8 +390,16 @@ class _Chip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? cs.onSurface : cs.onSurface.withAlpha(10),
+          color: selected
+              ? cs.onSurface
+              : cs.onSurface.withAlpha(12),
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : cs.onSurface.withAlpha(40),
+            width: 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -399,11 +411,7 @@ class _Chip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: selected
-                    ? Theme.of(context).brightness == Brightness.dark
-                        ? Colors.black
-                        : Colors.white
-                    : cs.onSurfaceVariant,
+                color: selected ? cs.surface : cs.onSurface,
               ),
             ),
           ],
@@ -448,12 +456,15 @@ class _TxnGroup extends StatelessWidget {
         ),
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161616) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outline, width: 0.5),
+            color: isDark ? const Color(0xFF141414) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: cs.outline, width: isDark ? 0.5 : 1),
+            boxShadow: isDark ? null : [
+              BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 12, offset: const Offset(0, 4)),
+            ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             child: Column(
               children: txns.asMap().entries.map((e) {
                 final t       = e.value;

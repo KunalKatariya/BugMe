@@ -86,7 +86,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isMonthEnded = month.compareTo(currentMonth) < 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
       body: CustomScrollView(
         controller: _scroll,
         physics: const BouncingScrollPhysics(),
@@ -97,7 +97,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             floating: false,
             pinned: true,
             stretch: true,
-            backgroundColor: const Color(0xFF04040F),
+            backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
             surfaceTintColor: Colors.transparent,
             // compact title row shown only when collapsed
             title: AnimatedOpacity(
@@ -148,11 +148,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           // ── White card body ────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161616) : Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24)),
-              ),
+              color: isDark ? const Color(0xFF141414) : Colors.white,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -253,10 +249,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius:
-              BorderRadius.vertical(top: Radius.circular(20))),
+              BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => Padding(
         padding:
             const EdgeInsets.fromLTRB(20, 12, 20, 36),
@@ -353,6 +349,7 @@ class _HeroBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Amount morphs: left-aligned small → centered huge
     final amountSize = 34.0 + 22.0 * expandRatio;
     final amountAlign = Alignment.lerp(
@@ -409,10 +406,11 @@ class _HeroBackground extends StatelessWidget {
       ],
     );
 
-    return Container(
-      // Profile section: distinctly darker so it visually separates
-      // from the gradient spend section below it.
-      color: const Color(0xFF04040F),
+    return Stack(
+      children: [
+        Container(
+      // Profile section: slightly darker warm base so it reads as card top
+      color: isDark ? const Color(0xFF0C0903) : const Color(0xFF081222),
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -433,19 +431,43 @@ class _HeroBackground extends StatelessWidget {
             // card below: each section peeks out with rounded top corners.
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF15152E), Color(0xFF0A0A0A)],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(22),
-                    topRight: Radius.circular(22),
+                decoration: BoxDecoration(
+                  gradient: isDark
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF1C1407),
+                            Color(0xFF3A2B0E),
+                            Color(0xFF4D3B18),
+                            Color(0xFF2E2109),
+                            Color(0xFF181106),
+                          ],
+                          stops: [0.0, 0.25, 0.5, 0.72, 1.0],
+                        )
+                      : const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF1E3050), Color(0xFF0C1A2E)],
+                        ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(28),
+                    topRight: Radius.circular(28),
                   ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(28),
+                          topRight: Radius.circular(28),
+                        ),
+                        child: CustomPaint(painter: _HeroDecoPainter()),
+                      ),
+                    ),
+                    Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -617,11 +639,26 @@ class _HeroBackground extends StatelessWidget {
                     ],
                   ),
                 ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    ),
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          child: Container(
+            height: 28,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF141414) : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -637,6 +674,50 @@ class _HeroBackground extends StatelessWidget {
     ];
     return '${d.day} ${months[d.month - 1]}';
   }
+}
+
+// ── Hero decorative painter ────────────────────────────────────────────────────
+
+class _HeroDecoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.0;
+
+    // ── Large overlapping circles bleeding off top-right ─────────────────────
+    stroke.color = const Color(0x22FFFFFF);
+    canvas.drawCircle(
+      Offset(size.width * 1.05, -size.height * 0.05),
+      size.height * 0.72,
+      stroke,
+    );
+
+    stroke.color = const Color(0x16FFFFFF);
+    canvas.drawCircle(
+      Offset(size.width * 0.85, -size.height * 0.12),
+      size.height * 0.68,
+      stroke,
+    );
+
+    // ── Soft glow at intersection ─────────────────────────────────────────────
+    canvas.drawCircle(
+      Offset(size.width * 0.96, size.height * 0.05),
+      size.height * 0.42,
+      Paint()
+        ..style = PaintingStyle.fill
+        ..color = const Color(0x09FFFFFF),
+    );
+
+    // ── Accent arc bottom-left for balance ───────────────────────────────────
+    stroke.color = const Color(0x10FFFFFF);
+    canvas.drawCircle(
+      Offset(-size.width * 0.06, size.height * 1.05),
+      size.height * 0.55,
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 // ── Day-wise spending bar chart ──────────────────────────────────────────
@@ -664,6 +745,8 @@ class _DailySpendChart extends StatelessWidget {
     final isCurrentMonth = year == now.year && mon == now.month;
     final todayDay    = isCurrentMonth ? now.day : -1;
 
+    final isDark      = Theme.of(context).brightness == Brightness.dark;
+
     // Compute max for y-axis
     double maxSpend = 0;
     for (var d = 1; d <= daysInMonth; d++) {
@@ -673,8 +756,8 @@ class _DailySpendChart extends StatelessWidget {
     final effectiveMax = maxSpend > 0 ? maxSpend * 1.3 : 500.0;
     final yInterval   = (effectiveMax / 4).ceilToDouble();
 
-    const barBlue  = Color(0xFF6EB5FF);
-    const barDim   = Color(0x28FFFFFF);
+    final barAccent = isDark ? const Color(0xFFDDDDDD) : const Color(0xFF1A1A1A);
+    const barDim   = Color(0x20FFFFFF);
     const todayCol = Color(0xFFFFD580);
 
     final groups = List.generate(daysInMonth, (i) {
@@ -684,7 +767,7 @@ class _DailySpendChart extends StatelessWidget {
       final color = isToday
           ? todayCol
           : amount > 0
-              ? barBlue
+              ? barAccent
               : barDim;
       return BarChartGroupData(
         x: day,
@@ -734,7 +817,7 @@ class _DailySpendChart extends StatelessWidget {
               minY: 0,
               barTouchData: BarTouchData(
                 touchTooltipData: BarTouchTooltipData(
-                  getTooltipColor: (_) => const Color(0xFF1E1E40),
+                  getTooltipColor: (_) => const Color(0xFF1E1E1E),
                   tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   tooltipMargin: 6,
                   getTooltipItem: (group, _, rod, _) => BarTooltipItem(
@@ -880,17 +963,17 @@ class _BudgetSummaryCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDark
-              ? [const Color(0xFF1E1E30), const Color(0xFF161616)]
-              : [const Color(0xFFEEF2FF), Colors.white],
+              ? [const Color(0xFF1A1A1A), const Color(0xFF141414)]
+              : [const Color(0xFFF0F0F0), Colors.white],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2E2E50) : const Color(0xFFD0D8FF),
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFDFDFDF),
           width: 1,
         ),
         boxShadow: isDark
             ? null
-            : [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 12, offset: const Offset(0, 4))],
+            : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1008,15 +1091,15 @@ class _GroupedTransactions extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Container(
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  color: isDark ? const Color(0xFF141414) : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: cs.outline.withAlpha(60), width: 1),
+                      color: cs.outline.withAlpha(50), width: 1),
                   boxShadow: isDark
                       ? null
                       : [
                           BoxShadow(
-                            color: Colors.black.withAlpha(10),
+                            color: Colors.black.withAlpha(8),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           )
@@ -1192,7 +1275,7 @@ class _MonthEndReport extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: accentColor.withAlpha(10),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: accentColor.withAlpha(50), width: 1),
       ),
       child: Column(
@@ -1204,7 +1287,7 @@ class _MonthEndReport extends StatelessWidget {
             decoration: BoxDecoration(
               color: accentColor.withAlpha(18),
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(15)),
+                  const BorderRadius.vertical(top: Radius.circular(19)),
             ),
             child: Row(
               children: [

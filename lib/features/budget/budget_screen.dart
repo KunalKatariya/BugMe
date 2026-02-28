@@ -47,7 +47,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     final goalsAsync  = ref.watch(goalsProvider);
     final spend       = ref.watch(spendPerCategoryProvider);
     final currency    = ref.watch(currencyProvider);
-    final bgColor     = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor     = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
     final monthLabel  = DateFormat('MMMM yyyy').format(DateTime.parse('$month-01'));
 
     final recurrings  = recurAsync.valueOrNull ?? [];
@@ -165,8 +165,8 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                               horizontal: 16, vertical: 13),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF1E1E1E)
-                                : const Color(0xFFEAEAEA),
+                                ? const Color(0xFF141414)
+                                : const Color(0xFFEEECFA),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                                 color: cs.outline, width: 0.5),
@@ -208,7 +208,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         subtitle: 'Your discretionary budgets',
                         value: formatAmount(totalVariable, currency),
                         icon: Icons.tune_rounded,
-                        color: cs.primary,
+                        color: const Color(0xFFFF7070),
                         tt: tt,
                         cs: cs,
                         isDark: isDark,
@@ -277,7 +277,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
@@ -365,7 +365,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -461,7 +461,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF11111F) : Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
@@ -625,210 +625,340 @@ class _IncomeCard extends StatelessWidget {
     required this.onEditIncome,
   });
 
+  // Text colors are set dynamically in build() based on card shade
+  // (no static consts here — dark mode uses a light card, light mode uses a dark card)
+
   @override
   Widget build(BuildContext context) {
-    final unallocColor = isOver
-        ? AppTheme.negative
-        : unallocated < 1 && income > 0
-            ? AppTheme.positive
-            : cs.primary;
+    final freeColor = isOver ? AppTheme.negative : AppTheme.positive;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Income row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('MONTHLY INCOME',
-                        style: tt.labelSmall?.copyWith(
-                            letterSpacing: 1.2,
-                            color: cs.onSurfaceVariant)),
-                    const SizedBox(height: 4),
-                    income > 0
-                        ? Text(
-                            formatAmount(income, currency),
-                            style: tt.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.5),
-                          )
-                        : GestureDetector(
-                            onTap: onEditIncome,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: cs.primary.withAlpha(18),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: cs.primary.withAlpha(80),
-                                    width: 1),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.add_rounded,
-                                      color: cs.primary, size: 16),
-                                  const SizedBox(width: 6),
-                                  Text('Set your income',
-                                      style: tt.bodyMedium?.copyWith(
-                                          color: cs.primary,
-                                          fontWeight: FontWeight.w700)),
-                                ],
-                              ),
-                            ),
-                          ),
-                  ],
-                ),
-              ),
-              if (income > 0)
-                IconButton(
-                  icon: Icon(Icons.edit_outlined, size: 18,
-                      color: cs.onSurfaceVariant),
-                  onPressed: onEditIncome,
-                  tooltip: 'Edit income',
-                ),
+    final pctCommitted =
+        income > 0 ? (committed / income * 100).clamp(0.0, 100.0) : 0.0;
+    final pctVariable =
+        income > 0 ? (variable / income * 100).clamp(0.0, 100.0) : 0.0;
+    final pctFree = (100.0 - pctCommitted - pctVariable).clamp(0.0, 100.0);
+
+    // Dark mode → matte dark gold  |  Light mode → deep navy
+    final gradient = isDark
+        ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1C1407), // dark bronze base
+              Color(0xFF3A2B0E), // warm gold
+              Color(0xFF4D3B18), // matte gold highlight (the "luster")
+              Color(0xFF2E2109), // warm shadow
+              Color(0xFF181106), // deep dark edge
             ],
-          ),
+            stops: [0.0, 0.25, 0.5, 0.72, 1.0],
+          )
+        : const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1E3050), Color(0xFF0C1A2E)],
+          );
+    final borderColor = isDark
+        ? const Color(0xFF5A4218)
+        : const Color(0xFF2A4070);
 
-          if (income > 0) ...[
-            const SizedBox(height: 18),
-            const Divider(height: 1, thickness: 0.5),
-            const SizedBox(height: 16),
+    // Text adapts to card shade
+    final textPrimary = Colors.white;
+    final textDim     = const Color(0x85FFFFFF);
+    final panelBg     = Colors.white.withAlpha(isDark ? 10 : 15);
+    final dividerCol  = Colors.white.withAlpha(isDark ? 22 : 30);
+    final labelCol    = const Color(0x66FFFFFF);
 
-            // Committed row
-            _AllocRow(
-              label: '🔒  Committed',
-              value: formatAmount(committed, currency),
-              portion: income > 0 ? (committed / income).clamp(0, 1) : 0,
-              color: const Color(0xFF42A5F5),
-              tt: tt,
-              cs: cs,
+    return AspectRatio(
+      aspectRatio: 1.6,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: borderColor, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(isDark ? 90 : 80),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(height: 10),
-
-            // Variable row
-            _AllocRow(
-              label: '💳  Variable',
-              value: formatAmount(variable, currency),
-              portion: income > 0 ? (variable / income).clamp(0, 1) : 0,
-              color: cs.primary,
-              tt: tt,
-              cs: cs,
-            ),
-            const SizedBox(height: 14),
-
-            // Unallocated chip
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: unallocColor.withAlpha(18),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: unallocColor.withAlpha(80), width: 1),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(21),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(painter: _CardDecoPainter()),
+              ),
+              Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Top: chip · label · edit ─────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const _EmvChip(),
+                  const SizedBox(width: 12),
+                  Text(
+                    'MONTHLY INCOME',
+                    style: TextStyle(
+                      color: textDim,
+                      fontSize: 9,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
+                  const Spacer(),
+                  if (income > 0)
+                    GestureDetector(
+                      onTap: onEditIncome,
+                      child: Icon(Icons.edit_outlined,
+                          size: 15, color: textDim),
+                    ),
+                ],
+              ),
+
+              const Spacer(),
+
+              // ── Income amount ─────────────────────────────────────
+              if (income > 0)
+                Text(
+                  formatAmount(income, currency),
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 26,
+                    letterSpacing: -0.5,
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: onEditIncome,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        isOver
-                            ? Icons.warning_amber_rounded
-                            : unallocated < 1 && income > 0
-                                ? Icons.check_circle_rounded
-                                : Icons.savings_outlined,
-                        color: unallocColor, size: 14,
-                      ),
-                      const SizedBox(width: 6),
+                      Icon(Icons.add_circle_outline_rounded,
+                          color: textDim, size: 17),
+                      const SizedBox(width: 8),
                       Text(
-                        isOver
-                            ? '${formatAmount(unallocated.abs(), currency)} over budget'
-                            : unallocated < 1 && income > 0
-                                ? 'Fully allocated ✓'
-                                : '${formatAmount(unallocated, currency)} left to allocate',
+                        'Set monthly income',
                         style: TextStyle(
-                            color: unallocColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700),
+                          color: textDim,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ── Three-column allocation stats ─────────────────────
+              if (income > 0) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: panelBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: dividerCol, width: 0.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _StatCol(
+                          label: 'COMMITTED',
+                          amount: formatAmount(committed, currency),
+                          pct: '${pctCommitted.toStringAsFixed(0)}%',
+                          color: const Color(0xFF42A5F5),
+                          labelColor: labelCol,
+                        ),
+                      ),
+                      Container(width: 0.5, height: 34, color: dividerCol),
+                      Expanded(
+                        child: _StatCol(
+                          label: 'VARIABLE',
+                          amount: formatAmount(variable, currency),
+                          pct: '${pctVariable.toStringAsFixed(0)}%',
+                          color: const Color(0xFFFF7070),
+                          labelColor: labelCol,
+                        ),
+                      ),
+                      Container(width: 0.5, height: 34, color: dividerCol),
+                      Expanded(
+                        child: _StatCol(
+                          label: isOver ? 'OVER' : 'FREE',
+                          amount: formatAmount(unallocated.abs(), currency),
+                          pct: isOver
+                              ? '!'
+                              : '${pctFree.toStringAsFixed(0)}%',
+                          color: freeColor,
+                          labelColor: labelCol,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _AllocRow extends StatelessWidget {
-  final String label, value;
-  final double portion;
-  final Color color;
-  final TextTheme tt;
-  final ColorScheme cs;
+// ── EMV chip ──────────────────────────────────────────────────────────────────
 
-  const _AllocRow({
+class _EmvChip extends StatelessWidget {
+  const _EmvChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38,
+      height: 28,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFDDBB55), Color(0xFF9A7218)],
+        ),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: CustomPaint(painter: _ChipPainter()),
+    );
+  }
+}
+
+class _ChipPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFF8B6400).withAlpha(120)
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+        Offset(0, size.height * .5), Offset(size.width, size.height * .5), p);
+    canvas.drawLine(
+        Offset(size.width * .5, 0), Offset(size.width * .5, size.height), p);
+    final rect = Rect.fromCenter(
+      center: Offset(size.width * .5, size.height * .5),
+      width: size.width * .55,
+      height: size.height * .55,
+    );
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter _) => false;
+}
+
+// ── Card decorative painter ────────────────────────────────────────────────────
+
+class _CardDecoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // ── Two large overlapping circles bleeding off bottom-right ──────────────
+    final stroke = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.0;
+
+    stroke.color = const Color(0x2AFFFFFF);
+    canvas.drawCircle(
+      Offset(size.width * 0.95, size.height * 0.92),
+      size.height * 0.78,
+      stroke,
+    );
+
+    stroke.color = const Color(0x18FFFFFF);
+    canvas.drawCircle(
+      Offset(size.width * 0.76, size.height * 0.88),
+      size.height * 0.73,
+      stroke,
+    );
+
+    // ── Soft fill in the circles' intersection area ──────────────────────────
+    canvas.drawCircle(
+      Offset(size.width * 0.87, size.height * 0.90),
+      size.height * 0.48,
+      Paint()
+        ..style = PaintingStyle.fill
+        ..color = const Color(0x09FFFFFF),
+    );
+
+    // ── Subtle accent arc in top-left for balance ────────────────────────────
+    stroke.color = const Color(0x12FFFFFF);
+    canvas.drawCircle(
+      Offset(-size.width * 0.04, -size.height * 0.08),
+      size.height * 0.52,
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter _) => false;
+}
+
+class _StatCol extends StatelessWidget {
+  final String label, amount, pct;
+  final Color color;
+  final Color labelColor;
+
+  const _StatCol({
     required this.label,
-    required this.value,
-    required this.portion,
+    required this.amount,
+    required this.pct,
     required this.color,
-    required this.tt,
-    required this.cs,
+    required this.labelColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(label,
-                      style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w600)),
-                  Text(value,
-                      style: tt.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface)),
-                ],
-              ),
-              const SizedBox(height: 5),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: portion,
-                  minHeight: 5,
-                  backgroundColor: color.withAlpha(22),
-                  valueColor: AlwaysStoppedAnimation(color),
-                ),
-              ),
-            ],
+        Text(
+          pct,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
           ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: labelColor,
+            fontSize: 7,
+            letterSpacing: 1.1,
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          amount,
+          style: TextStyle(
+            color: color.withAlpha(200),
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
   }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Section header
@@ -855,34 +985,62 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 34, height: 34,
-          decoration: BoxDecoration(
-            color: color.withAlpha(22),
-            shape: BoxShape.circle,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(isDark ? 18 : 12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withAlpha(50), width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withAlpha(30),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 16),
           ),
-          child: Icon(icon, color: color, size: 16),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: tt.labelLarge?.copyWith(
-                      letterSpacing: 1.0, fontWeight: FontWeight.w800)),
-              Text(subtitle,
-                  style: tt.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant)),
-            ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        Text(value,
-            style: tt.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w800, color: color)),
-      ],
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -920,7 +1078,7 @@ class _CommittedCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
+        color: isDark ? const Color(0xFF141414) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cs.outline, width: 0.5),
       ),
@@ -1065,7 +1223,7 @@ class _VariableCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161616) : Colors.white,
+        color: isDark ? const Color(0xFF141414) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cs.outline, width: 0.5),
       ),
@@ -1204,7 +1362,7 @@ class _EmptyVariableCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
+          color: isDark ? const Color(0xFF141414) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: cs.outline, width: 0.5),
         ),
@@ -1294,7 +1452,7 @@ class _WalletBar extends StatelessWidget {
             ? AppTheme.positive
             : cs.primary;
 
-    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       color: bgColor,

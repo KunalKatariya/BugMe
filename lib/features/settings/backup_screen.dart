@@ -18,7 +18,7 @@ class BackupScreen extends ConsumerWidget {
     final cs     = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor =
-        isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+        isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -307,7 +307,7 @@ class _ActionCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161616) : Colors.white,
+            color: isDark ? const Color(0xFF141414) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: cs.outline, width: 0.8),
           ),

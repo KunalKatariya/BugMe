@@ -22,7 +22,7 @@ class SettingsScreen extends ConsumerWidget {
     final currency  = ref.watch(currencyProvider);
     final apiKey    = ref.watch(apiKeyProvider);
     final profile   = ref.watch(userProfileProvider);
-    final bgColor   = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
+    final bgColor   = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -61,10 +61,12 @@ class SettingsScreen extends ConsumerWidget {
                       value: themeMode == ThemeMode.dark,
                       onChanged: (_) =>
                           ref.read(themeModeProvider.notifier).toggle(),
-                      activeThumbColor: isDark ? Colors.black : Colors.white,
-                      activeTrackColor: cs.onSurface,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: isDark
+                          ? const Color(0xFF4A4A4A)
+                          : const Color(0xFF1A1A1A),
                       inactiveThumbColor: cs.onSurfaceVariant,
-                      inactiveTrackColor: cs.onSurface.withAlpha(20),
+                      inactiveTrackColor: cs.outline,
                     ),
                   )),
 
@@ -172,7 +174,7 @@ class SettingsScreen extends ConsumerWidget {
                             subtitle: Text(c.code, style: tt.bodySmall),
                             trailing: isSel
                                 ? Icon(Icons.check_circle_rounded,
-                                    color: cs.onSurface, size: 20)
+                                    color: cs.primary, size: 20)
                                 : null,
                             onTap: () async {
                                 ref.read(currencyProvider.notifier).setCurrency(c);
@@ -268,8 +270,14 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 8),
-        child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+        padding: const EdgeInsets.only(left: 4, bottom: 10, top: 4),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                letterSpacing: 1.1,
+              ),
+        ),
       );
 }
 
@@ -282,12 +290,15 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF161616) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outline, width: 0.5),
+          color: isDark ? const Color(0xFF141414) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.outline, width: isDark ? 0.5 : 1),
+          boxShadow: isDark ? null : [
+            BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 12, offset: const Offset(0, 4)),
+          ],
         ),
         child: ClipRRect(
-            borderRadius: BorderRadius.circular(16), child: child),
+            borderRadius: BorderRadius.circular(20), child: child),
       );
 }
 

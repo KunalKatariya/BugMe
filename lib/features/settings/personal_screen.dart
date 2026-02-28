@@ -57,8 +57,8 @@ class _PersonalScreenState extends ConsumerState<PersonalScreen> {
     final tt     = Theme.of(context).textTheme;
     final cs     = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF2F2F2);
-    final cardColor = isDark ? const Color(0xFF161616) : Colors.white;
+    final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
+    final cardColor = isDark ? const Color(0xFF141414) : Colors.white;
 
     return Scaffold(
       backgroundColor: bgColor,
