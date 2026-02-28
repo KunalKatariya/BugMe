@@ -44,6 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Release binaries — distributed via GitHub Releases, not committed to source
+*.apk
+*.ipa
+*.aab
+
 # Android signing — NEVER commit these
 *.jks
 *.keystore
