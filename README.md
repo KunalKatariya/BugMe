@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🎙️ BugMe
+<img src="assets/images/logo_transparent.png" width="110" alt="BugMe logo" />
+
+# BugMe
 
 ### Voice-first. AI-powered. Zero friction.
 
