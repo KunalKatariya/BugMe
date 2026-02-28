@@ -40,6 +40,7 @@ dependencies:
   share_plus: ^10.0.2
   file_picker: ^10.3.10
   home_widget: ^0.9.0
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -53,7 +54,7 @@ dev_dependencies:
 # ── Launcher icon config ──────────────────────────────────────────────────
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   image_path: "assets/images/launcher_icon.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/adaptive_fg.png"
@@ -68,7 +69,7 @@ flutter_native_splash:
     icon_background_color: "#FFFFFF"
     color: "#FFFFFF"
   web: false
-  ios: false
+  ios: true
 
 flutter:
   uses-material-design: true

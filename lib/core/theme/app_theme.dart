@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   AppTheme._();
@@ -202,7 +203,7 @@ class AppTheme {
       ),
 
       // ── Typography ─────────────────────────────────────────────────
-      textTheme: base.textTheme.copyWith(
+      textTheme: GoogleFonts.interTextTheme(base.textTheme).copyWith(
         displayLarge: TextStyle(
             color: textPrimary, fontSize: 52,
             fontWeight: FontWeight.w900, letterSpacing: -2.5),
