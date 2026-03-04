@@ -268,9 +268,11 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Automatically apply SIP contributions where due (call on app launch).
-  Future<void> processSipContributions() async {
+  /// Returns a list of goals that were newly completed in this run.
+  Future<List<({String name, String emoji})>> processSipContributions() async {
     final now  = DateTime.now();
     final list = await select(goals).get();
+    final completed = <({String name, String emoji})>[];
     for (final goal in list) {
       if (goal.sipAmount == null || goal.sipAmount! <= 0) continue;
       if (goal.savedAmount >= goal.targetAmount) continue;
@@ -282,9 +284,10 @@ class AppDatabase extends _$AppDatabase {
       }
       final remaining   = goal.targetAmount - goal.savedAmount;
       final contribution = goal.sipAmount! < remaining ? goal.sipAmount! : remaining;
+      final newSaved = goal.savedAmount + contribution;
       await (update(goals)..where((g) => g.id.equals(goal.id))).write(
         GoalsCompanion(
-          savedAmount: Value(goal.savedAmount + contribution),
+          savedAmount: Value(newSaved),
           sipLastContributed: Value(now),
         ),
       );
@@ -299,7 +302,12 @@ class AppDatabase extends _$AppDatabase {
         accountId: Value(goal.accountId),
         txnType: const Value('investment'),
       ));
+      // Track if this SIP contribution completed the goal
+      if (newSaved >= goal.targetAmount) {
+        completed.add((name: goal.name, emoji: goal.emoji));
+      }
     }
+    return completed;
   }
 
   // ── Recurring Payments ────────────────────────────────────
@@ -525,6 +533,8 @@ class AppDatabase extends _$AppDatabase {
         .map((rows) {
       final map = <int, double>{};
       for (final r in rows) {
+        // Exclude savings/goal contributions from the spend chart
+        if (r.txnType == 'investment') continue;
         map[r.date.day] = (map[r.date.day] ?? 0) + r.amount;
       }
       return map;

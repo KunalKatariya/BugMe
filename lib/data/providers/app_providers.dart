@@ -139,12 +139,14 @@ final spendPerCategoryProvider = Provider<Map<String, double>>((ref) {
   return map;
 });
 
-/// Total money out of the account for the selected month — **all transaction
-/// types** (expense + investment + recurring) for an accurate cash-outflow
-/// figure in the dashboard hero.
+/// Total money spent out of the account for the selected month —
+/// **expense + recurring only** (investment/SIP contributions excluded because
+/// they are savings transfers, not actual spending).
 final totalMonthlyOutflowProvider = Provider<double>((ref) {
   final txns = ref.watch(transactionsProvider).valueOrNull ?? [];
-  return txns.fold(0.0, (sum, t) => sum + t.amount);
+  return txns
+      .where((t) => t.txnType != 'investment')
+      .fold(0.0, (sum, t) => sum + t.amount);
 });
 
 // ── Budget Allocations ─────────────────────────────────────────────────────
@@ -292,3 +294,12 @@ final monthlyIncomeProvider =
 
 /// null = loading, false = show onboarding, true = already done
 final onboardingDoneProvider = StateProvider<bool?>((ref) => null);
+
+// ── Goal completion celebration ───────────────────────────────────────────
+
+/// Holds a list of goals that were just completed (via SIP or manual
+/// contribution) and are waiting for their celebration UI to fire.
+/// Consumers clear this list after showing the dialog.
+typedef GoalCompletion = ({String name, String emoji});
+final pendingGoalCelebrationProvider =
+    StateProvider<List<GoalCompletion>>((ref) => []);

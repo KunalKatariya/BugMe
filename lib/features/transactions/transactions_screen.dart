@@ -77,9 +77,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             error: (e, _) => SliverFillRemaining(
                 child: Center(child: Text('Error: $e'))),
             data: (txns) {
+              // Goal SIP contributions are savings transfers, not spending —
+              // hide them from this list entirely.
+              final visible = txns.where((t) => t.txnType != 'investment').toList();
               final filtered = _filterCategory == null
-                  ? txns
-                  : txns.where((t) => t.category == _filterCategory).toList();
+                  ? visible
+                  : visible.where((t) => t.category == _filterCategory).toList();
 
       if (filtered.isEmpty) {
                 return SliverFillRemaining(

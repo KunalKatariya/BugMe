@@ -78,11 +78,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final totalSpend  = spend.values.fold(0.0, (a, b) => a + b);
     final totalOutflow = ref.watch(totalMonthlyOutflowProvider);
 
-    // ── Committed amounts (recurring configs + active SIPs) ───────────────
-    // Mirror budget_screen committed calculation so the hero reflects the
-    // full planned outflow even when auto-payments haven't been processed yet.
+    // ── Committed amounts (recurring only — goal SIPs are savings, not spending) ─
+    // Mirror budget_screen recurring calculation so the hero reflects planned
+    // recurring outflows even when auto-payments haven't been processed yet.
     final recurrings  = ref.watch(recurringPaymentsProvider).valueOrNull ?? [];
-    final goals       = ref.watch(goalsProvider).valueOrNull ?? [];
     double monthlyEquiv(RecurringPayment r) {
       switch (r.frequency) {
         case 'daily':  return r.amount * 30;
@@ -92,16 +91,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     }
     final totalRecurring = recurrings.fold<double>(0, (s, r) => s + monthlyEquiv(r));
-    final totalSIPs      = goals
-        .where((g) => (g.sipAmount ?? 0) > 0 && g.savedAmount < g.targetAmount)
-        .fold<double>(0, (s, g) => s + g.sipAmount!);
-    final totalCommitted = totalRecurring + totalSIPs;
     final now          = DateTime.now();
     final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
     // Only boost with committed for the current month — past months have
     // fully-processed transactions so totalOutflow is already accurate.
     final displayedOutflow = month == currentMonth
-        ? max(totalOutflow, totalSpend + totalCommitted)
+        ? max(totalOutflow, totalSpend + totalRecurring)
         : totalOutflow;
     final totalBudget = allocAsync.valueOrNull
         ?.fold(0.0, (s, a) => s + a.allocatedAmount) ?? 0.0;
@@ -234,7 +229,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                       error: (_, _) => const SizedBox.shrink(),
                       data: (txns) {
-                        if (txns.isEmpty) {
+                        // Exclude goal SIP contributions from the home feed
+                        final spending = txns.where((t) => t.txnType != 'investment').toList();
+                        if (spending.isEmpty) {
                           return _EmptyHint(
                             icon: '💸',
                             message: 'No spending this month.\nTap the mic to add your first entry.',
@@ -243,7 +240,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           );
                         }
                         return _GroupedTransactions(
-                          txns: txns,
+                          txns: spending,
                           currency: currency,
                           cs: cs,
                           tt: tt,
@@ -403,7 +400,7 @@ class _HeroBackground extends StatelessWidget {
     final profileRow = Row(
       children: [
         Container(
-          width: 44, height: 44,
+          width: 56, height: 56,
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(18),
             shape: BoxShape.circle,
@@ -412,10 +409,10 @@ class _HeroBackground extends StatelessWidget {
           child: userAvatar == '__logo__'
               ? ClipOval(
                   child: Image.asset('assets/images/logo.png',
-                      fit: BoxFit.cover, width: 44, height: 44))
+                      fit: BoxFit.cover, width: 56, height: 56))
               : Center(
                   child: Text(userAvatar,
-                      style: const TextStyle(fontSize: 22))),
+                      style: const TextStyle(fontSize: 26))),
         ),
         const SizedBox(width: 12),
         Column(

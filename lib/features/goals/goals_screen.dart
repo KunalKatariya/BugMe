@@ -13,11 +13,16 @@ import '../../core/theme/app_theme.dart';
 import '../../data/database/app_database.dart';
 import '../../data/providers/app_providers.dart';
 
-class GoalsScreen extends ConsumerWidget {
+class GoalsScreen extends ConsumerStatefulWidget {
   const GoalsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GoalsScreen> createState() => _GoalsScreenState();
+}
+
+class _GoalsScreenState extends ConsumerState<GoalsScreen> {
+  @override
+  Widget build(BuildContext context) {
     final tt         = Theme.of(context).textTheme;
     final cs         = Theme.of(context).colorScheme;
     final isDark     = Theme.of(context).brightness == Brightness.dark;
@@ -38,32 +43,41 @@ class GoalsScreen extends ConsumerWidget {
             title: Text('Goals & Planning', style: tt.headlineMedium),
           ),
 
-          // ── Goals section ──────────────────────────────────────────────
+          // ── Active goals section ────────────────────────────────────────────
           goalsAsync.when(
             loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
             error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-            data: (goalsList) => SliverPadding(
+            data: (goalsList) {
+              final activeGoals = goalsList
+                  .where((g) => g.savedAmount < g.targetAmount)
+                  .toList();
+              final completedGoals = goalsList
+                  .where((g) => g.savedAmount >= g.targetAmount)
+                  .toList();
+              return SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _SectionHeader(
                     left: 'MY GOALS',
-                    right: '${goalsList.length} goal${goalsList.length != 1 ? 's' : ''}',
+                    right: '${activeGoals.length} active',
                     icon: Icons.flag_rounded,
                     color: AppTheme.positive,
                     subtitle: 'Save towards your targets',
                     onAdd: () => _showAddGoal(context, ref),
                   ),
-                  if (goalsList.isEmpty)
+                  if (activeGoals.isEmpty)
                     _EmptyCard(
                       emoji: '🎯',
-                      message: 'No goals yet.\nTap Add to get started.',
+                      message: completedGoals.isEmpty
+                          ? 'No goals yet.\nTap Add to get started.'
+                          : 'All goals achieved! Add a new one.',
                       cs: cs,
                       tt: tt,
                       isDark: isDark,
                     )
                   else
-                    ...goalsList.asMap().entries.map((e) => _GoalCard(
+                    ...activeGoals.asMap().entries.map((e) => _GoalCard(
                           goal: e.value,
                           colorIndex: e.key,
                           currency: currency,
@@ -77,9 +91,30 @@ class GoalsScreen extends ConsumerWidget {
                           onDelete: () =>
                               _confirmDeleteGoal(context, ref, e.value),
                         ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.06, duration: 350.ms)),
+
+                  // ── Trophies: completed goals ────────────────────────────
+                  if (completedGoals.isNotEmpty) ...[  
+                    const SizedBox(height: 20),
+                    _SectionHeader(
+                      left: 'TROPHIES',
+                      right: '🏆 ${completedGoals.length}',
+                      icon: Icons.emoji_events_rounded,
+                      color: const Color(0xFFD4A017),
+                      subtitle: 'Goals you\'ve achieved',
+                    ),
+                    ...completedGoals.map((g) => _TrophyCard(
+                          goal: g,
+                          currency: currency,
+                          cs: cs,
+                          tt: tt,
+                          isDark: isDark,
+                          onDelete: () => _confirmDeleteGoal(context, ref, g),
+                        ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.06, duration: 350.ms)),
+                  ],
                 ]),
               ),
-            ),
+            );
+            },
           ),
 
           // ── Recurring payments section ────────────────────────────────
@@ -441,6 +476,8 @@ class GoalsScreen extends ConsumerWidget {
                 onPressed: () async {
                   final amount = double.tryParse(ctrl.text.trim()) ?? 0;
                   if (amount <= 0) return;
+                  final wasComplete = goal.savedAmount >= goal.targetAmount;
+                  final newSaved = goal.savedAmount + amount;
                   final db = ref.read(databaseProvider);
                   await db.contributeToGoal(goal.id, amount);
                   // Record as investment transaction (won't count against budgets)
@@ -453,6 +490,14 @@ class GoalsScreen extends ConsumerWidget {
                     accountId: Value(goal.accountId),
                     txnType: const Value('investment'),
                   ));
+                  // Trigger celebration if this contribution just completed the goal
+                  if (!wasComplete && newSaved >= goal.targetAmount) {
+                    final existing = ref.read(pendingGoalCelebrationProvider);
+                    ref.read(pendingGoalCelebrationProvider.notifier).state = [
+                      ...existing,
+                      (name: goal.name, emoji: goal.emoji),
+                    ];
+                  }
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: const Text('Add Contribution'),
@@ -1500,6 +1545,120 @@ class _RecurringCard extends StatelessWidget {
               onTap: onEdit,
               child: Icon(Icons.edit_outlined,
                   size: 18, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Trophy card (completed goals) ──────────────────────────────────────────
+
+class _TrophyCard extends StatelessWidget {
+  final Goal goal;
+  final AppCurrency currency;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final bool isDark;
+  final VoidCallback onDelete;
+
+  const _TrophyCard({
+    required this.goal,
+    required this.currency,
+    required this.cs,
+    required this.tt,
+    required this.isDark,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const gold     = Color(0xFFD4A017);
+    const goldDark = Color(0xFFFFD700);
+    final accent   = isDark ? goldDark : gold;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141414) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withAlpha(90), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withAlpha(isDark ? 30 : 20),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: accent.withAlpha(isDark ? 30 : 18),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(goal.emoji,
+                    style: const TextStyle(fontSize: 22))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(goal.name,
+                      style: tt.bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: accent.withAlpha(isDark ? 30 : 20),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: accent.withAlpha(80), width: 0.8),
+                    ),
+                    child: Text(
+                      '🏆  Achieved',
+                      style: TextStyle(
+                          color: accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  formatAmount(goal.targetAmount, currency),
+                  style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text('saved',
+                    style: tt.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant)),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: Icon(Icons.delete_outline_rounded,
+                      color: cs.onSurfaceVariant.withAlpha(140),
+                      size: 18),
+                ),
+              ],
             ),
           ],
         ),

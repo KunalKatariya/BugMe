@@ -57,7 +57,11 @@ class _BugMeAppState extends ConsumerState<BugMeApp>
             .setCurrency(currencyByCode(account.currencyCode));
       }
       // Auto-process monthly SIP contributions for all goals
-      await ref.read(databaseProvider).processSipContributions();
+      final sipCompletions =
+          await ref.read(databaseProvider).processSipContributions();
+      if (sipCompletions.isNotEmpty && mounted) {
+        ref.read(pendingGoalCelebrationProvider.notifier).state = sipCompletions;
+      }
       // Auto-create transactions for overdue recurring payments
       await ref.read(databaseProvider).processRecurringPayments();
       // Check onboarding state (must come before first frame)
@@ -165,6 +169,15 @@ class _AppShellState extends ConsumerState<_AppShell> {
     final isDark  = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF5F5F5);
 
+    // Show celebration dialog for any newly completed goals
+    ref.listen(pendingGoalCelebrationProvider, (_, completions) {
+      if (completions.isEmpty) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showNextCelebration(context, completions);
+      });
+    });
+
     return Scaffold(
       backgroundColor: bgColor,
       extendBody: true,
@@ -187,8 +200,235 @@ class _AppShellState extends ConsumerState<_AppShell> {
   }
 
   void _onTap(int i) => setState(() => _currentIndex = i);
+
+  void _showNextCelebration(BuildContext context, List<GoalCompletion> completions) {
+    if (completions.isEmpty) return;
+    final goal = completions.first;
+    final remaining = completions.skip(1).toList();
+    // Clear queue immediately so we don’t re-trigger
+    ref.read(pendingGoalCelebrationProvider.notifier).state = [];
+    _showGoalAchieved(context, goal.name, goal.emoji, onDismissed: () {
+      if (remaining.isNotEmpty && mounted) {
+        _showNextCelebration(context, remaining);
+      }
+    });
+  }
+
+  void _showGoalAchieved(
+    BuildContext context,
+    String goalName,
+    String goalEmoji, {
+    VoidCallback? onDismissed,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withAlpha(160),
+      builder: (_) => _GoalAchievedDialog(
+        goalName: goalName,
+        goalEmoji: goalEmoji,
+        isDark: isDark,
+      ),
+    ).then((_) => onDismissed?.call());
+  }
+}
+// ── Goal Achieved celebration dialog ────────────────────────────────────────
+
+class _GoalAchievedDialog extends StatefulWidget {
+  final String goalName;
+  final String goalEmoji;
+  final bool isDark;
+
+  const _GoalAchievedDialog({
+    required this.goalName,
+    required this.goalEmoji,
+    required this.isDark,
+  });
+
+  @override
+  State<_GoalAchievedDialog> createState() => _GoalAchievedDialogState();
 }
 
+class _GoalAchievedDialogState extends State<_GoalAchievedDialog>
+    with TickerProviderStateMixin {
+  late AnimationController _scale;
+  late AnimationController _bounce;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _bounceAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _scale = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 420));
+    _bounce = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 800),
+        lowerBound: -0.06,
+        upperBound: 0.06);
+    _scaleAnim = CurvedAnimation(parent: _scale, curve: Curves.elasticOut);
+    _bounceAnim = CurvedAnimation(parent: _bounce, curve: Curves.easeInOut);
+    _scale.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _bounce.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scale.dispose();
+    _bounce.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1A1200), Color(0xFF2E2000), Color(0xFF1A1200)],
+                  )
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+                  ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: isDark
+                  ? const Color(0xFFD4A017).withAlpha(100)
+                  : const Color(0xFFF59E0B).withAlpha(120),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD4A017).withAlpha(isDark ? 60 : 40),
+                blurRadius: 40,
+                spreadRadius: 4,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Trophy + goal emoji
+              AnimatedBuilder(
+                animation: _bounceAnim,
+                builder: (_, child) => Transform.translate(
+                  offset: Offset(0, _bounceAnim.value * 8),
+                  child: child,
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Text('🏆',
+                        style: TextStyle(
+                            fontSize: 72,
+                            shadows: [
+                              Shadow(
+                                color: const Color(0xFFD4A017).withAlpha(80),
+                                blurRadius: 24,
+                              ),
+                            ])),
+                    Positioned(
+                      bottom: -8, right: -8,
+                      child: Container(
+                        width: 38, height: 38,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF2E2000)
+                              : const Color(0xFFFFF8DC),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xFFD4A017)
+                                : const Color(0xFFF59E0B),
+                            width: 2,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(widget.goalEmoji,
+                              style: const TextStyle(fontSize: 20)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                'Goal Achieved!',
+                style: TextStyle(
+                  color: isDark ? const Color(0xFFFFD700) : const Color(0xFF92400E),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.goalName,
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF1C1917),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Your savings are locked in and ready to use!',
+                style: TextStyle(
+                  color: isDark
+                      ? Colors.white.withAlpha(140)
+                      : const Color(0xFF78350F),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark
+                        ? const Color(0xFFD4A017)
+                        : const Color(0xFFF59E0B),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Woohoo! 🎉',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 // ── Floating nav bar container ─────────────────────────────────────────────
 
 class _FloatingNavBar extends StatelessWidget {

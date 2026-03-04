@@ -795,7 +795,7 @@ class _IncomeCard extends StatelessWidget {
                       Container(width: 0.5, height: 34, color: dividerCol),
                       Expanded(
                         child: _StatCol(
-                          label: isOver ? 'OVER' : 'FREE',
+                          label: isOver ? 'OVER' : 'SAVINGS',
                           amount: formatAmount(unallocated.abs(), currency),
                           pct: isOver
                               ? '!'
@@ -1492,7 +1492,7 @@ class _WalletBar extends StatelessWidget {
                           ? Icons.warning_amber_rounded
                           : unallocated < 1
                               ? Icons.check_circle_rounded
-                              : Icons.account_balance_wallet_outlined,
+                              : Icons.savings_outlined,
                       color: color, size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -1504,8 +1504,8 @@ class _WalletBar extends StatelessWidget {
                             isOver
                                 ? '${formatAmount(unallocated.abs(), currency)} over-allocated'
                                 : unallocated < 1
-                                    ? 'Budget fully allocated!'
-                                    : '${formatAmount(unallocated, currency)} unallocated',
+                                    ? 'Income fully planned!'
+                                    : '${formatAmount(unallocated, currency)} going to savings',
                             style: TextStyle(
                                 color: color,
                                 fontWeight: FontWeight.w800,
